@@ -1,4 +1,4 @@
-using Sandbox;
+namespace Sandbox.States.Test;
 
 [TestClass]
 public partial class LibraryTests

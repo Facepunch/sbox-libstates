@@ -4,7 +4,7 @@ using Editor;
 using Editor.NodeEditor;
 using Facepunch.ActionGraphs;
 
-namespace Sandbox.Events.Editor;
+namespace Sandbox.States.Editor;
 
 public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, IDeletable, IComparable<TransitionItem>
 {

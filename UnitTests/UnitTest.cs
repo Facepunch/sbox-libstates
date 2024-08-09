@@ -1,5 +1,7 @@
 global using Microsoft.VisualStudio.TestTools.UnitTesting;
 
+namespace Sandbox.States.Test;
+
 [TestClass]
 public class TestInit
 {

@@ -1,7 +1,7 @@
 ﻿using Facepunch.ActionGraphs;
 using System;
 
-namespace Sandbox.Events.Editor;
+namespace Sandbox.States.Editor;
 
 partial class TransitionItem
 {

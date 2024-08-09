@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Sandbox.Diagnostics;
 
-namespace Sandbox.Events;
+namespace Sandbox.States;
 
 /// <summary>
 /// <para>

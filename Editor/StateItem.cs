@@ -3,7 +3,7 @@ using System.Linq;
 using Editor;
 using Editor.NodeEditor;
 
-namespace Sandbox.Events.Editor;
+namespace Sandbox.States.Editor;
 
 public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 {

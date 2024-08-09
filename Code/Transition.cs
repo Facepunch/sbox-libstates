@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Sandbox.Events;
+namespace Sandbox.States;
 
 [Title( "Transition" ), Icon( "forward" ), Category( "State Machines" )]
 public sealed class TransitionComponent : Component, IComparable<TransitionComponent>

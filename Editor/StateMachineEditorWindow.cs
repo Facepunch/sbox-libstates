@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Sandbox.Events.Editor;
+namespace Sandbox.States.Editor;
 
 public class StateMachineEditorWindow : DockWindow
 {

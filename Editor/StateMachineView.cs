@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 using Editor.NodeEditor;
-using static Sandbox.PhysicsContact;
 
-namespace Sandbox.Events.Editor;
+namespace Sandbox.States.Editor;
 
 public interface IContextMenuSource
 {
