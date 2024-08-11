@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Linq;
 using Editor;
 using Editor.NodeEditor;
@@ -288,6 +287,14 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		var menu = new global::Editor.Menu();
 
+		menu.AddHeading( "Transition" );
+
+		menu.AddOption( "Delete", "delete", action: Delete );
+
+		menu.AddSeparator();
+
+		menu.AddHeading( "Condition" );
+
 		if ( Transition.Condition is not null )
 		{
 			menu.AddOption( "Edit Condition", "edit", action: () => EditGraph( Transition.Condition ) );
@@ -310,6 +317,10 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 				SceneEditorSession.Active.Scene.EditLog( "Transition Condition Added", Transition.StateMachine );
 			} );
 		}
+
+		menu.AddSeparator();
+
+		menu.AddHeading( "Delay" );
 
 		if ( Transition.Delay is { } currentDelay )
 		{
@@ -352,6 +363,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		}
 
 		menu.AddSeparator();
+
+		menu.AddHeading( "Action" );
 
 		if ( Transition.OnTransition is not null )
 		{

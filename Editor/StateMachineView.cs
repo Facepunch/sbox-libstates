@@ -224,9 +224,9 @@ public class StateMachineView : GraphicsView
 
 		e.Accepted = true;
 
-		// var createMenu = menu.AddMenu( "Create New State", "add" );
+		menu.AddHeading( "Create State" );
 
-		menu.AddLineEdit( "New State", placeholder: "Name", autoFocus: true, onSubmit: name =>
+		menu.AddLineEdit( "Name", autoFocus: true, onSubmit: name =>
 		{
 			using var _ = StateMachine.Scene.Push();
 

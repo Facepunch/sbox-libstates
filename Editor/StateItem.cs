@@ -146,20 +146,9 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 		var menu = new global::Editor.Menu();
 
-		if ( State.StateMachine.InitialState != State )
-		{
-			menu.AddOption( "Make Initial State", "start", action: () =>
-			{
-				State.StateMachine.InitialState = State;
-				Update();
+		menu.AddHeading( "State" );
 
-				SceneEditorSession.Active.Scene.EditLog( "Initial State Assigned", State.StateMachine );
-			} );
-
-			menu.AddSeparator();
-		}
-
-		menu.AddMenu( "Rename State", "edit" ).AddLineEdit( "Rename", State.Name, onSubmit: value =>
+		menu.AddMenu( "Rename", "edit" ).AddLineEdit( "Rename", State.Name, onSubmit: value =>
 		{
 			State.Name = value ?? "Unnamed";
 			Update();
@@ -167,7 +156,18 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			SceneEditorSession.Active.Scene.EditLog( "State Renamed", State.StateMachine );
 		}, autoFocus: true );
 
-		menu.AddOption( "Delete State", "delete", action: Delete );
+		if ( State.StateMachine.InitialState != State )
+		{
+			menu.AddOption( "Make Initial", "start", action: () =>
+			{
+				State.StateMachine.InitialState = State;
+				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( "Initial State Assigned", State.StateMachine );
+			} );
+		}
+
+		menu.AddOption( "Delete", "delete", action: Delete );
 
 		menu.OpenAtCursor( true );
 	}
