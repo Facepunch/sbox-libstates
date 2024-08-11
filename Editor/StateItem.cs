@@ -11,7 +11,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 	public static Color InitialColor { get; } = Color.Parse( "#BCA5DB" )!.Value;
 
 	public StateMachineView View { get; }
-	public StateComponent State { get; }
+	public State State { get; }
 
 	public float Radius => 64f;
 
@@ -21,7 +21,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 	private int _lastHash;
 
-	public StateItem( StateMachineView view, StateComponent state )
+	public StateItem( StateMachineView view, State state )
 	{
 		View = view;
 		State = state;
@@ -71,10 +71,10 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		Paint.ClearBrush();
 		Paint.SetFont( "roboto", 12f, 600 );
 		Paint.SetPen( Color.Black.WithAlpha( 0.5f ) );
-		Paint.DrawText( new Rect( 2f, 2f, Size.x, Size.y ), State.GameObject.Name );
+		Paint.DrawText( new Rect( 2f, 2f, Size.x, Size.y ), State.Name );
 
 		Paint.SetPen( borderColor );
-		Paint.DrawText( new Rect( 0f, 0f, Size.x, Size.y ), State.GameObject.Name );
+		Paint.DrawText( new Rect( 0f, 0f, Size.x, Size.y ), State.Name );
 	}
 
 	protected override void OnMousePressed( GraphicsMouseEvent e )
@@ -152,15 +152,19 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			{
 				State.StateMachine.InitialState = State;
 				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( "Initial State Assigned", State.StateMachine );
 			} );
 
 			menu.AddSeparator();
 		}
 
-		menu.AddMenu( "Rename State", "edit" ).AddLineEdit( "Rename", State.GameObject.Name, onSubmit: value =>
+		menu.AddMenu( "Rename State", "edit" ).AddLineEdit( "Rename", State.Name, onSubmit: value =>
 		{
-			State.GameObject.Name = value;
+			State.Name = value ?? "Unnamed";
 			Update();
+
+			SceneEditorSession.Active.Scene.EditLog( "State Renamed", State.StateMachine );
 		}, autoFocus: true );
 
 		menu.AddOption( "Delete State", "delete", action: Delete );
@@ -171,7 +175,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 	protected override void OnMoved()
 	{
 		State.EditorPosition = Position.SnapToGrid( View.GridSize );
-		SceneEditorSession.Active.Scene.EditLog( "State Moved", State );
+		SceneEditorSession.Active.Scene.EditLog( "State Moved", State.StateMachine );
 
 		UpdatePosition();
 	}
@@ -213,13 +217,15 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			transition.Delete();
 		}
 
-		State.GameObject.Destroy();
+		State.Remove();
 		Destroy();
+
+		SceneEditorSession.Active.Scene.EditLog( "State Removed", State.StateMachine );
 	}
 
 	public void Frame()
 	{
-		var hash = HashCode.Combine( State.StateMachine?.InitialState == State, State.StateMachine?.CurrentState == State );
+		var hash = HashCode.Combine( State.StateMachine.InitialState == State, State.StateMachine.CurrentState == State );
 		if ( hash == _lastHash ) return;
 
 		_lastHash = hash;

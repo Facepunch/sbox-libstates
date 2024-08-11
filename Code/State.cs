@@ -1,93 +1,94 @@
 ﻿using System;
 using System.Collections.Generic;
+using Sandbox.Diagnostics;
 
 namespace Sandbox.States;
 
-/// <summary>
-/// Marks a <see cref="GameObject"/> as a state in a state machine. There must be a
-/// <see cref="StateMachineComponent"/> on an ancestor object for this to function.
-/// The object containing this state (and all ancestors) will be enabled when the state
-/// machine transitions to this state, and will disable again when this state is exited.
-/// States may be nested within each other.
-/// </summary>
-[Title( "State" ), Icon( "circle" ), Category( "State Machines" )]
-public sealed class StateComponent : Component
+public sealed class State : IValid
 {
-	private StateMachineComponent? _stateMachine;
+	private readonly List<Transition> _orderedTransitions = new();
+	private bool _transitionsDirty = false;
+
+	public StateMachineComponent StateMachine { get; }
 
 	/// <summary>
-	/// Which state machine does this state belong to?
+	/// Unique ID of this state in its containing <see cref="StateMachineComponent"/>.
 	/// </summary>
-	public StateMachineComponent StateMachine =>
-		_stateMachine ??= Components.GetInAncestorsOrSelf<StateMachineComponent>();
+	public int Id { get; }
 
 	/// <summary>
-	/// Which state is this nested in, if any?
+	/// Helpful name of this state.
 	/// </summary>
-	public StateComponent? Parent => Components.GetInAncestors<StateComponent>( true );
+	public string Name { get; set; } = "Unnamed";
 
-	public IEnumerable<TransitionComponent> Transitions => Components.GetAll<TransitionComponent>( FindMode.EverythingInSelf );
+	public bool IsValid { get; internal set; }
+
+	public IReadOnlyList<Transition> Transitions
+	{
+		get
+		{
+			if ( _transitionsDirty ) UpdateTransitions();
+			return _orderedTransitions;
+		}
+	}
 
 	/// <summary>
 	/// Event dispatched on the owner when this state is entered.
 	/// </summary>
-	[Property, KeyProperty]
-	public event Action? OnEnterState;
+	public Action? OnEnterState { get; set; }
 
 	/// <summary>
 	/// Event dispatched on the owner while this state is active.
 	/// </summary>
-	[Property, KeyProperty]
-	public event Action? OnUpdateState;
+	public Action? OnUpdateState { get; set; }
 
 	/// <summary>
 	/// Event dispatched on the owner when this state is exited.
 	/// </summary>
-	[Property, KeyProperty]
-	public event Action? OnLeaveState;
+	public Action? OnLeaveState { get; set; }
 
-	[Property, Hide]
 	public Vector2 EditorPosition { get; set; }
 
-	private TimeSince _sinceEnter;
-
-	/// <summary>
-	/// How long since we entered this state?
-	/// </summary>
-	[ActionGraphInclude]
-	public float Time => Enabled ? _sinceEnter : 0f;
-
-	private TransitionComponent? _nextTransition;
-
-	internal void Enter( bool dispatch )
+	internal State( StateMachineComponent stateMachine, int id )
 	{
-		Enabled = true;
+		StateMachine = stateMachine;
+		Id = id;
+	}
 
-		_sinceEnter = 0f;
-		_nextTransition = null;
+	private void UpdateTransitions()
+	{
+		_transitionsDirty = false;
+		_orderedTransitions.Clear();
 
-		if ( dispatch )
+		foreach ( var transition in StateMachine.Transitions )
 		{
-			OnEnterState?.Invoke();
-			TestTransitions();
+			if ( transition.Source == this )
+			{
+				_orderedTransitions.Add( transition );
+			}
 		}
+
+		_orderedTransitions.Sort();
 	}
 
-	internal void Update()
+	internal Transition? GetNextTransition( float prevTime, float nextTime )
 	{
-		OnUpdateState?.Invoke();
-		TestTransitions();
-	}
-
-	internal void Leave( bool dispatch )
-	{
-		if ( dispatch )
+		foreach ( var transition in Transitions )
 		{
-			OnLeaveState?.Invoke();
+			if ( transition.Delay is { } delay )
+			{
+				if ( delay < prevTime || delay > nextTime )
+				{
+					continue;
+				}
+			}
 
 			try
 			{
-				_nextTransition?.Action?.Invoke();
+				if ( transition.Condition?.Invoke() is not false )
+				{
+					return transition;
+				}
 			}
 			catch ( Exception e )
 			{
@@ -95,58 +96,45 @@ public sealed class StateComponent : Component
 			}
 		}
 
-		Enabled = false;
-
-		_nextTransition = null;
+		return null;
 	}
 
-	[ThreadStatic]
-	private static List<TransitionComponent>? TestTransitions_Active;
-
-	private void TestTransitions()
+	public Transition AddTransition( State target )
 	{
-		_nextTransition = null;
-
-		TestTransitions_Active ??= new List<TransitionComponent>();
-		TestTransitions_Active.Clear();
-
-		TestTransitions_Active.AddRange( Components.GetAll<TransitionComponent>( FindMode.EnabledInSelf ) );
-		TestTransitions_Active.Sort();
-
-		foreach ( var transition in TestTransitions_Active )
-		{
-			try
-			{
-				if ( transition.Condition?.Invoke() is false ) continue;
-			}
-			catch ( Exception e )
-			{
-				Log.Error( e );
-			}
-
-			_nextTransition = transition;
-
-			StateMachine.Transition( transition.Target );
-			break;
-		}
-
-		TestTransitions_Active.Clear();
+		return StateMachine.AddTransition( this, target );
 	}
 
-	internal IReadOnlyList<StateComponent> GetAncestors()
+	public void Remove()
 	{
-		var list = new List<StateComponent>();
+		if ( !IsValid ) return;
+		StateMachine.RemoveState( this );
+	}
 
-		var parent = Parent;
+	internal void InvalidateTransitions()
+	{
+		_transitionsDirty = true;
+	}
 
-		while ( parent != null )
-		{
-			list.Add( parent );
-			parent = parent.Parent;
-		}
+	internal record Model( int Id, string Name, Action? OnEnterState, Action? OnUpdateState, Action? OnLeaveState, Model.UserDataModel? UserData )
+	{
+		public record UserDataModel( Vector2 Position );
+	}
 
-		list.Reverse();
+	internal Model Serialize()
+	{
+		return new Model( Id, Name, OnEnterState, OnUpdateState, OnLeaveState, new Model.UserDataModel( EditorPosition ) );
+	}
 
-		return list;
+	internal void Deserialize( Model model )
+	{
+		Assert.AreEqual( Id, model.Id );
+
+		Name = model.Name;
+
+		OnEnterState = model.OnEnterState;
+		OnUpdateState = model.OnUpdateState;
+		OnLeaveState = model.OnLeaveState;
+
+		EditorPosition = model.UserData?.Position ?? Vector2.Zero;
 	}
 }

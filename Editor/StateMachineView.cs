@@ -47,13 +47,13 @@ public class StateMachineView : GraphicsView
 
 	public StateMachineEditorWindow Window { get; }
 
-	GraphView.SelectionBox _selectionBox;
+	GraphView.SelectionBox? _selectionBox;
 	private bool _dragging;
 	private Vector2 _lastMouseScenePosition;
 
-	private readonly Dictionary<StateComponent, StateItem> _stateItems = new();
-	private readonly Dictionary<TransitionComponent, TransitionItem> _transitionItems = new();
-	private readonly Dictionary<StatePair, List<TransitionItem>> _neighboringTransitions = new( EqualityComparer<StatePair>.Default );
+	private readonly Dictionary<State, StateItem> _stateItems = new();
+	private readonly Dictionary<Transition, TransitionItem> _transitionItems = new();
+	private readonly Dictionary<UnorderedPair<int>, List<TransitionItem>> _neighboringTransitions = new( EqualityComparer<UnorderedPair<int>>.Default );
 
 	private TransitionItem? _transitionPreview;
 	private bool _wasDraggingTransition;
@@ -132,11 +132,9 @@ public class StateMachineView : GraphicsView
 
 		if ( _transitionPreview?.Target is { } target )
 		{
-			var transition = _transitionPreview.Source.State.Components.Create<TransitionComponent>();
+			AddTransitionItem( _transitionPreview.Source.State.AddTransition( target.State ) );
 
-			transition.Target = target.State;
-
-			AddTransitionItem( transition );
+			SceneEditorSession.Active.Scene.EditLog( "Transition Added", StateMachine );
 		}
 
 		if ( _transitionPreview is not null )
@@ -232,12 +230,9 @@ public class StateMachineView : GraphicsView
 		{
 			using var _ = StateMachine.Scene.Push();
 
-			var obj = new GameObject( true, name ?? "Unnamed" );
+			var state = StateMachine.AddState();
 
-			obj.SetParent( StateMachine.GameObject, false );
-
-			var state = obj.Components.Create<StateComponent>();
-
+			state.Name = name ?? "Unnamed";
 			state.EditorPosition = scenePos.SnapToGrid( GridSize ) - 64f;
 
 			if ( !StateMachine.InitialState.IsValid() )
@@ -246,6 +241,8 @@ public class StateMachineView : GraphicsView
 			}
 
 			AddStateItem( state );
+
+			SceneEditorSession.Active.Scene.EditLog( "State Added", StateMachine );
 		} );
 
 		menu.OpenAtCursor( true );
@@ -299,29 +296,28 @@ public class StateMachineView : GraphicsView
 		{
 			UpdateItems();
 		}
-		else
+
+		foreach ( var item in _stateItems.Values )
 		{
-			foreach ( var item in _stateItems.Values )
-			{
-				item.Frame();
-			}
+			item.Frame();
 		}
 	}
 
-	private readonly struct StatePair : IEquatable<StatePair>
+	private readonly struct UnorderedPair<T> : IEquatable<UnorderedPair<T>>
+		where T : IEquatable<T>
 	{
-		public StateComponent A { get; }
-		public StateComponent B { get; }
+		public T A { get; }
+		public T B { get; }
 
-		public StatePair( StateComponent a, StateComponent b )
+		public UnorderedPair( T a, T b )
 		{
 			A = a;
 			B = b;
 		}
 
-		public bool Equals( StatePair other )
+		public bool Equals( UnorderedPair<T> other )
 		{
-			return A == other.A && B == other.B || A == other.B && B == other.A;
+			return A.Equals( other.A ) && B.Equals( other.B ) || A.Equals( other.B ) && B.Equals( other.A );
 		}
 
 		public override int GetHashCode()
@@ -332,8 +328,8 @@ public class StateMachineView : GraphicsView
 
 	public void UpdateItems()
 	{
-		ItemHelper<StateComponent, StateItem>.Update( this, StateMachine.States, _stateItems, AddStateItem );
-		var transitionsChanged = ItemHelper<TransitionComponent, TransitionItem>.Update( this, StateMachine.States.SelectMany( x => x.Transitions ), _transitionItems, AddTransitionItem );
+		ItemHelper<State, StateItem>.Update( this, StateMachine.States, _stateItems, AddStateItem );
+		var transitionsChanged = ItemHelper<Transition, TransitionItem>.Update( this, StateMachine.States.SelectMany( x => x.Transitions ), _transitionItems, AddTransitionItem );
 
 		if ( transitionsChanged )
 		{
@@ -347,7 +343,7 @@ public class StateMachineView : GraphicsView
 
 		foreach ( var item in Items.OfType<TransitionItem>().Where( x => x.Target is not null ) )
 		{
-			var key = new StatePair( item.Source.State, item.Target!.State );
+			var key = new UnorderedPair<int>( item.Source.State.Id, item.Target!.State.Id );
 
 			if ( !_neighboringTransitions.TryGetValue( key, out var list ) )
 			{
@@ -368,14 +364,14 @@ public class StateMachineView : GraphicsView
 		}
 	}
 
-	private void AddStateItem( StateComponent state )
+	private void AddStateItem( State state )
 	{
 		var item = new StateItem( this, state );
 		_stateItems.Add( state, item );
 		Add( item );
 	}
 
-	private void AddTransitionItem( TransitionComponent transition )
+	private void AddTransitionItem( Transition transition )
 	{
 		var source = GetStateItem( transition.Source );
 		var target = GetStateItem( transition.Target );
@@ -387,12 +383,12 @@ public class StateMachineView : GraphicsView
 		Add( item );
 	}
 
-	public StateItem? GetStateItem( StateComponent state )
+	public StateItem? GetStateItem( State state )
 	{
 		return _stateItems!.GetValueOrDefault( state );
 	}
 
-	public TransitionItem? GetTransitionItem( TransitionComponent transition )
+	public TransitionItem? GetTransitionItem( Transition transition )
 	{
 		return _transitionItems!.GetValueOrDefault( transition );
 	}
@@ -404,7 +400,7 @@ public class StateMachineView : GraphicsView
 			return (0, 1);
 		}
 
-		var key = new StatePair( item.Source.State, item.Target.State );
+		var key = new UnorderedPair<int>( item.Source.State.Id, item.Target.State.Id );
 
 		if ( !_neighboringTransitions.TryGetValue( key, out var list ) )
 		{
@@ -426,19 +422,19 @@ public class StateMachineView : GraphicsView
 		Add( _transitionPreview );
 	}
 
-	private static class ItemHelper<TComponent, TItem>
-		where TComponent : Component
+	private static class ItemHelper<TSource, TItem>
+		where TSource : notnull
 		where TItem : GraphicsItem
 	{
-		[ThreadStatic] private static HashSet<TComponent>? SourceSet;
-		[ThreadStatic] private static List<TComponent>? ToRemove;
+		[ThreadStatic] private static HashSet<TSource>? SourceSet;
+		[ThreadStatic] private static List<TSource>? ToRemove;
 
-		public static bool Update( GraphicsView view, IEnumerable<TComponent> source, Dictionary<TComponent, TItem> dict, Action<TComponent> add )
+		public static bool Update( GraphicsView view, IEnumerable<TSource> source, Dictionary<TSource, TItem> dict, Action<TSource> add )
 		{
-			SourceSet ??= new HashSet<TComponent>();
+			SourceSet ??= new HashSet<TSource>();
 			SourceSet.Clear();
 
-			ToRemove ??= new List<TComponent>();
+			ToRemove ??= new List<TSource>();
 			ToRemove.Clear();
 
 			var changed = false;

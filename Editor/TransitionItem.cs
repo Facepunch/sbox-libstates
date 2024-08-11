@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using Editor;
 using Editor.NodeEditor;
@@ -8,12 +9,12 @@ namespace Sandbox.States.Editor;
 
 public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, IDeletable, IComparable<TransitionItem>
 {
-	public TransitionComponent? Transition { get; }
+	public Transition? Transition { get; }
 	public StateItem Source { get; }
 	public StateItem? Target { get; set; }
 	public Vector2 TargetPosition { get; set; }
 
-	public TransitionItem( TransitionComponent? transition, StateItem source, StateItem? target )
+	public TransitionItem( Transition? transition, StateItem source, StateItem? target )
 		: base( null )
 	{
 		Transition = transition;
@@ -147,11 +148,11 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		return TransitionKind.Default;
 	}
 
-	private (string? Icon, string? Title) GetLabelParts( Delegate? deleg, string defaultIcon )
+	private (string Icon, string Title)? GetLabelParts( Delegate? deleg, string defaultIcon, string defaultTitle )
 	{
 		return deleg.TryGetActionGraphImplementation( out var graph, out _ )
-			? (string.IsNullOrEmpty( graph.Icon ) ? defaultIcon : graph.Icon, graph.Title)
-			: (null, null);
+			? (string.IsNullOrEmpty( graph.Icon ) ? defaultIcon : graph.Icon, string.IsNullOrEmpty( graph.Title ) ? defaultTitle : graph.Title)
+			: null;
 	}
 
 	protected override void OnPaint()
@@ -193,38 +194,48 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		var conditionRect = new Rect( -width * 0.5f + 16f, -20f, width - 32f, 16f );
 		var actionRect = new Rect( -width * 0.5f + 16f, 4f, width - 32f, 16f );
 
+		(string Icon, string Title)? delayLabel = Transition?.Delay is { } seconds ? ("timer", FormatDuration( seconds )) : null;
+		var conditionLabel = GetLabelParts( Transition?.Condition, "question_mark", "Condition" );
+		var actionLabel = GetLabelParts( Transition?.OnTransition, "directions_run", "Action" );
+
 		if ( tangent.x < 0f )
 		{
 			Paint.Rotate( 180f );
 
-			DrawLabel( Transition?.Condition, "question_mark", conditionRect, TextFlag.SingleLine | TextFlag.RightBottom );
-			DrawLabel( Transition?.Action, "directions_run", actionRect, TextFlag.SingleLine | TextFlag.LeftTop );
+			var conditionAdvance = DrawLabel( conditionLabel, conditionRect, TextFlag.SingleLine | TextFlag.RightBottom );
+
+			conditionRect = conditionRect.Shrink( 0f, 0f, conditionAdvance, 0f );
+
+			DrawLabel( delayLabel, conditionRect, TextFlag.SingleLine | TextFlag.RightBottom );
+			DrawLabel( actionLabel, actionRect, TextFlag.SingleLine | TextFlag.LeftTop );
 		}
 		else
 		{
-			DrawLabel( Transition?.Condition, "question_mark", conditionRect, TextFlag.SingleLine | TextFlag.LeftBottom );
-			DrawLabel( Transition?.Action, "directions_run", actionRect, TextFlag.SingleLine | TextFlag.RightTop );
+			var delayAdvance = DrawLabel( delayLabel, conditionRect, TextFlag.SingleLine | TextFlag.LeftBottom );
+
+			conditionRect = conditionRect.Shrink( delayAdvance, 0f, 0f, 0f );
+
+			DrawLabel( conditionLabel, conditionRect, TextFlag.SingleLine | TextFlag.LeftBottom );
+			DrawLabel( actionLabel, actionRect, TextFlag.SingleLine | TextFlag.RightTop );
 		}
 	}
 
-	private void DrawLabel( Delegate? deleg, string defaultIcon, Rect rect, TextFlag flags )
+	private float DrawLabel( (string Icon, string Title)? label, Rect rect, TextFlag flags )
 	{
-		var (icon, title) = GetLabelParts( deleg, defaultIcon );
-
-		if ( icon is not null )
+		if ( label is not { Icon: var icon, Title: var title } )
 		{
-			rect = rect.Shrink( 20f, 0f, 0f, 0f );
-
-			var textRect = Paint.MeasureText( rect, title ?? "", flags );
-			var iconRect = new Rect( textRect.Left - 18f, rect.Top, 16f, 16f );
-
-			Paint.DrawIcon( iconRect, icon, 12f );
+			return 0f;
 		}
 
-		if ( title is not null )
-		{
-			Paint.DrawText( rect, title, flags );
-		}
+		rect = rect.Shrink( 20f, 0f, 0f, 0f );
+
+		var textRect = Paint.MeasureText( rect, title, flags );
+		var iconRect = new Rect( textRect.Left - 18f, rect.Top, 16f, 16f );
+
+		Paint.DrawIcon( iconRect, icon, 12f );
+		Paint.DrawText( rect, title, flags );
+
+		return textRect.Width + 20f;
 	}
 
 	public void Layout()
@@ -239,8 +250,10 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	public void Delete()
 	{
-		Transition!.Destroy();
+		Transition!.Remove();
 		Destroy();
+
+		SceneEditorSession.Active.Scene.EditLog( "Transition Removed", Transition.StateMachine );
 	}
 
 	private T CreateGraph<T>( string title )
@@ -251,7 +264,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		inner.Title = title;
 		inner.SetParameters(
-			inner.Inputs.Values.Concat( InputDefinition.Target( typeof( GameObject ), Transition!.GameObject ) ),
+			inner.Inputs.Values.Concat( InputDefinition.Target( typeof( GameObject ), Transition!.StateMachine.GameObject ) ),
 			inner.Outputs.Values.ToArray() );
 
 		return graph;
@@ -282,6 +295,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 			{
 				Transition.Condition = null;
 				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( "Transition Condition Removed", Transition.StateMachine );
 			} );
 		}
 		else
@@ -291,39 +306,76 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 				Transition.Condition = CreateGraph<Func<bool>>( "Condition" );
 				EditGraph( Transition.Condition );
 				Update();
-			} );
 
-			menu.AddMenu( "Add Delay", "timer" ).AddLineEdit( "Seconds", value: "1", autoFocus: true, onSubmit:
+				SceneEditorSession.Active.Scene.EditLog( "Transition Condition Added", Transition.StateMachine );
+			} );
+		}
+
+		if ( Transition.Delay is { } currentDelay )
+		{
+			menu.AddMenu( "Edit Delay", "timer" ).AddLineEdit( "Seconds", value: currentDelay.ToString( "R" ), autoFocus: true, onSubmit:
 				delayStr =>
 				{
-					if ( !float.TryParse( delayStr, out var seconds ) )
+					if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
 					{
 						return;
 					}
 
-					Transition.Condition = CreateDelayGraph( seconds );
+					Transition.Delay = seconds;
 					Update();
+
+					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
+				} );
+			menu.AddOption( "Clear Delay", "timer_off", action: () =>
+			{
+				Transition.Delay = null;
+				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( "Transition Delay Removed", Transition.StateMachine );
+			} );
+		}
+		else
+		{
+			menu.AddMenu( "Add Delay", "timer" ).AddLineEdit( "Seconds", value: "1", autoFocus: true, onSubmit:
+				delayStr =>
+				{
+					if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
+					{
+						return;
+					}
+
+					Transition.Delay = seconds;
+					Update();
+
+					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Added", Transition.StateMachine );
 				} );
 		}
 
 		menu.AddSeparator();
 
-		if ( Transition.Action is not null )
+		if ( Transition.OnTransition is not null )
 		{
-			menu.AddOption( "Edit Action", "edit", action: () => EditGraph( Transition.Action ) );
+			menu.AddOption( "Edit Action", "edit", action: () =>
+			{
+				EditGraph( Transition.OnTransition );
+			} );
 			menu.AddOption( "Clear Action", "clear", action: () =>
 			{
-				Transition.Action = null;
+				Transition.OnTransition = null;
 				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( "Transition Action Removed", Transition.StateMachine );
 			} );
 		}
 		else
 		{
 			menu.AddOption( "Add Action", "directions_run", action: () =>
 			{
-				Transition.Action = CreateGraph<Action>( "Action" );
-				EditGraph( Transition.Action );
+				Transition.OnTransition = CreateGraph<Action>( "Action" );
+				EditGraph( Transition.OnTransition );
 				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( "Transition Action Added", Transition.StateMachine );
 			} );
 		}
 
@@ -336,6 +388,6 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	public int CompareTo( TransitionItem? other )
 	{
-		return Source.State.Id.CompareTo( other?.Source.State.Id ?? Guid.Empty );
+		return Source.State.Id.CompareTo( other?.Source.State.Id ?? -1 );
 	}
 }
