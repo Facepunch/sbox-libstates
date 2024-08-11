@@ -117,6 +117,8 @@ public sealed class StateMachineComponent : Component
 		InvokeSafe( current.OnLeaveState );
 		InvokeSafe( transition.OnTransition );
 
+		transition.LastTransitioned = 0f;
+
 		CurrentState = current = transition.Target;
 
 		InvokeSafe( current.OnEnterState );

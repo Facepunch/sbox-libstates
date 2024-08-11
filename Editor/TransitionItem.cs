@@ -167,18 +167,26 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		var hovered = Hovered || Source.Hovered;
 
 		var thickness = selected || hovered ? 6f : 4f;
+		var pulse = MathF.Pow( Math.Max( 1f - (Transition?.LastTransitioned ?? float.PositiveInfinity), 0f ), 8f );
+		var pulseScale = 1f + pulse * 3f;
+
+		thickness *= pulseScale;
+
 		var offset = thickness * 0.5f * normal;
 
 		var color = selected
 			? Color.Yellow : hovered
 			? Color.White : Color.White.Darken( 0.125f );
+		
+		var arrowEnd = Vector2.Lerp( end, start, pulse );
+		var lineEnd = arrowEnd - tangent * 14f;
 
 		Paint.ClearPen();
-		Paint.SetBrushLinear( start, end, color.Darken( 0.667f ), color );
-		Paint.DrawPolygon( start - offset, end - tangent * 14f - offset, end - tangent * 14f + offset, start + offset );
+		Paint.SetBrushLinear( start, end, color.Darken( 0.667f / pulseScale ), color );
+		Paint.DrawPolygon( start - offset, lineEnd - offset, lineEnd + offset, start + offset );
 
 		Paint.SetBrush( color );
-		Paint.DrawArrow( end - tangent * 16f, end, 12f );
+		Paint.DrawArrow( arrowEnd - tangent * 16f * pulseScale, arrowEnd, 12f * pulseScale );
 
 		var mid = (start + end) * 0.5f;
 		var width = (end - start).Length;
@@ -392,11 +400,17 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 			} );
 		}
 
-		menu.AddSeparator();
-
-		menu.AddOption( "Delete Transition", "delete", action: Delete );
-
 		menu.OpenAtCursor( true );
+	}
+
+	public void Frame()
+	{
+		if ( Transition is null || Transition.LastTransitioned > 1f )
+		{
+			return;
+		}
+
+		Update();
 	}
 
 	public int CompareTo( TransitionItem? other )

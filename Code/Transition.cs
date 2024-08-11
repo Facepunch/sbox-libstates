@@ -33,6 +33,8 @@ public sealed class Transition : IComparable<Transition>, IValid
 	/// </summary>
 	public bool IsValid { get; internal set; }
 
+	public RealTimeSince LastTransitioned { get; internal set; }
+
 	internal Transition( int id, State source, State target )
 	{
 		Source = source;

@@ -301,6 +301,11 @@ public class StateMachineView : GraphicsView
 		{
 			item.Frame();
 		}
+
+		foreach ( var item in _transitionItems.Values )
+		{
+			item.Frame();
+		}
 	}
 
 	private readonly struct UnorderedPair<T> : IEquatable<UnorderedPair<T>>
