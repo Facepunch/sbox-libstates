@@ -237,6 +237,8 @@ public sealed class StateMachineComponent : Component
 			_states.Add( state.Id, state );
 			_nextId = Math.Max( _nextId, state.Id + 1 );
 
+			state.IsValid = true;
+
 			state.Deserialize( stateModel );
 		}
 
@@ -248,6 +250,8 @@ public sealed class StateMachineComponent : Component
 
 			_transitions.Add( transition.Id, transition );
 			_nextId = Math.Max( _nextId, transition.Id + 1 );
+
+			transition.IsValid = true;
 
 			transition.Deserialize( transitionModel );
 		}
