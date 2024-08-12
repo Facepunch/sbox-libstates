@@ -69,13 +69,49 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			Paint.DrawCircle( Size * 0.5f, Size + 8f );
 		}
 
+		var titleRect = (State.OnEnterState ?? State.OnUpdateState ?? State.OnLeaveState) is not null
+			? new Rect( 0f, Size.y * 0.4f - 12f, Size.x, 24f )
+			: new Rect( 0f, Size.y * 0.5f - 12f, Size.x, 24f );
+
 		Paint.ClearBrush();
 		Paint.SetFont( "roboto", 12f, 600 );
 		Paint.SetPen( Color.Black.WithAlpha( 0.5f ) );
-		Paint.DrawText( new Rect( 2f, 2f, Size.x, Size.y ), State.Name );
+		Paint.DrawText( new Rect( titleRect.Position + 2f, titleRect.Size ), State.Name );
+
+		DrawActionIcons( 2f );
 
 		Paint.SetPen( borderColor );
-		Paint.DrawText( new Rect( 0f, 0f, Size.x, Size.y ), State.Name );
+		Paint.DrawText( titleRect, State.Name );
+
+		DrawActionIcons( 0f );
+	}
+
+	private void DrawActionIcons( Vector2 offset )
+	{
+		var pos = new Vector2( Size.x * 0.5f, Size.y * 0.6f ) + offset - 12f;
+		var actionCount = (State.OnEnterState is not null ? 1 : 0)
+			+ (State.OnUpdateState is not null ? 1 : 0)
+			+ (State.OnLeaveState is not null ? 1 : 0);
+
+		pos.x -= (actionCount - 1) * 16f;
+
+		if ( State.OnEnterState is not null )
+		{
+			Paint.DrawIcon( new Rect( pos.x, pos.y, 24f, 24f ), "login", 20f );
+			pos.x += 32f;
+		}
+
+		if ( State.OnUpdateState is not null )
+		{
+			Paint.DrawIcon( new Rect( pos.x, pos.y, 24f, 24f ), "update", 20f );
+			pos.x += 32f;
+		}
+
+		if ( State.OnLeaveState is not null )
+		{
+			Paint.DrawIcon( new Rect( pos.x, pos.y, 24f, 24f ), "logout", 20f );
+			pos.x += 32f;
+		}
 	}
 
 	protected override void OnMousePressed( GraphicsMouseEvent e )
