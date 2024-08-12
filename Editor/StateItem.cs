@@ -2,6 +2,7 @@
 using System.Linq;
 using Editor;
 using Editor.NodeEditor;
+using Facepunch.ActionGraphs;
 
 namespace Sandbox.States.Editor;
 
@@ -169,7 +170,48 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 		menu.AddOption( "Delete", "delete", action: Delete );
 
+		menu.AddSeparator();
+		menu.AddHeading( "Actions" );
+		AddActionOptions( menu, "Enter Action", "login", () => State.OnEnterState, action => State.OnEnterState = action );
+		AddActionOptions( menu, "Update Action", "update", () => State.OnUpdateState, action => State.OnUpdateState = action );
+		AddActionOptions( menu, "Leave Action", "logout", () => State.OnLeaveState, action => State.OnLeaveState = action );
+
 		menu.OpenAtCursor( true );
+	}
+
+	private void AddActionOptions( global::Editor.Menu menu, string title, string icon, Func<Action?> getter, Action<Action?> setter )
+	{
+		if ( getter() is {} action )
+		{
+			var subMenu = menu.AddMenu( title, icon );
+
+			subMenu.AddOption( "Edit", "edit", action: () =>
+			{
+				if ( action.TryGetActionGraphImplementation( out var graph, out _ ) )
+				{
+					EditorEvent.Run( "actiongraph.inspect", graph );
+				}
+			} );
+			subMenu.AddOption( "Clear", "clear", action: () =>
+			{
+				setter( null );
+				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( $"State {title} Removed", State.StateMachine );
+			} );
+		}
+		else
+		{
+			menu.AddOption( $"Add {title}", icon, action: () =>
+			{
+				var graph = View.CreateGraph<Action>( "Condition" );
+				setter( graph );
+				EditorEvent.Run( "actiongraph.inspect", (ActionGraph)graph );
+				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( $"State {title} Added", State.StateMachine );
+			} );
+		}
 	}
 
 	protected override void OnMoved()
