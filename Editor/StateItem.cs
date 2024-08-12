@@ -240,7 +240,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		{
 			menu.AddOption( $"Add {title}", icon, action: () =>
 			{
-				var graph = View.CreateGraph<Action>( "Condition" );
+				var graph = View.CreateGraph<Action>( title );
 				setter( graph );
 				EditorEvent.Run( "actiongraph.inspect", (ActionGraph)graph );
 				Update();
