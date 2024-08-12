@@ -3,6 +3,7 @@ using System.Linq;
 using Editor;
 using Editor.NodeEditor;
 using Facepunch.ActionGraphs;
+using static Editor.Label;
 
 namespace Sandbox.States.Editor;
 
@@ -71,6 +72,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	private (Vector2 Start, Vector2 End, Vector2 Tangent)? GetLocalStartEnd()
 	{
+		// TODO: transitions to self
+
 		var (index, count) = Source.View.GetTransitionPosition( this );
 
 		var sourceCenter = FromScene( Source.Center );
@@ -90,7 +93,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		}
 
 		var maxWidth = Source.Radius * 2f;
-		var usedWidth = count * 24f;
+		var usedWidth = count * 48f;
 
 		var itemWidth = Math.Min( usedWidth, maxWidth ) / count;
 		var offset = (index - count * 0.5f + 0.5f) * itemWidth;
@@ -263,20 +266,6 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		SceneEditorSession.Active.Scene.EditLog( "Transition Removed", Transition.StateMachine );
 	}
 
-	private T CreateGraph<T>( string title )
-		where T : Delegate
-	{
-		var graph = ActionGraph.Create<T>( EditorNodeLibrary );
-		var inner = (ActionGraph)graph;
-
-		inner.Title = title;
-		inner.SetParameters(
-			inner.Inputs.Values.Concat( InputDefinition.Target( typeof( GameObject ), Transition!.StateMachine.GameObject ) ),
-			inner.Outputs.Values.ToArray() );
-
-		return graph;
-	}
-
 	private void EditGraph<T>( T action )
 		where T : Delegate
 	{
@@ -297,16 +286,12 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		menu.AddHeading( "Transition" );
 
-		menu.AddOption( "Delete", "delete", action: Delete );
-
-		menu.AddSeparator();
-
-		menu.AddHeading( "Condition" );
-
 		if ( Transition.Condition is not null )
 		{
-			menu.AddOption( "Edit Condition", "edit", action: () => EditGraph( Transition.Condition ) );
-			menu.AddOption( "Clear Condition", "clear", action: () =>
+			var subMenu = menu.AddMenu( "Condition", "question_mark" );
+
+			subMenu.AddOption( "Edit", "edit", action: () => EditGraph( Transition.Condition ) );
+			subMenu.AddOption( "Clear", "clear", action: () =>
 			{
 				Transition.Condition = null;
 				Update();
@@ -318,7 +303,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		{
 			menu.AddOption( "Add Condition", "question_mark", action: () =>
 			{
-				Transition.Condition = CreateGraph<Func<bool>>( "Condition" );
+				Transition.Condition = Source.View.CreateGraph<Func<bool>>( "Condition" );
 				EditGraph( Transition.Condition );
 				Update();
 
@@ -326,13 +311,10 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 			} );
 		}
 
-		menu.AddSeparator();
-
-		menu.AddHeading( "Delay" );
-
 		if ( Transition.Delay is { } currentDelay )
 		{
-			menu.AddMenu( "Edit Delay", "timer" ).AddLineEdit( "Seconds", value: currentDelay.ToString( "R" ), autoFocus: true, onSubmit:
+			var subMenu = menu.AddMenu( "Delay", "timer" );
+			subMenu.AddLineEdit( "Seconds", value: currentDelay.ToString( "R" ), autoFocus: true, onSubmit:
 				delayStr =>
 				{
 					if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
@@ -345,7 +327,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
 				} );
-			menu.AddOption( "Clear Delay", "timer_off", action: () =>
+			subMenu.AddOption( "Clear", "timer_off", action: () =>
 			{
 				Transition.Delay = null;
 				Update();
@@ -372,15 +354,15 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		menu.AddSeparator();
 
-		menu.AddHeading( "Action" );
-
 		if ( Transition.OnTransition is not null )
 		{
-			menu.AddOption( "Edit Action", "edit", action: () =>
+			var subMenu = menu.AddMenu( "Action", "directions_run" );
+
+			subMenu.AddOption( "Edit", "edit", action: () =>
 			{
 				EditGraph( Transition.OnTransition );
 			} );
-			menu.AddOption( "Clear Action", "clear", action: () =>
+			subMenu.AddOption( "Clear", "clear", action: () =>
 			{
 				Transition.OnTransition = null;
 				Update();
@@ -392,13 +374,17 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		{
 			menu.AddOption( "Add Action", "directions_run", action: () =>
 			{
-				Transition.OnTransition = CreateGraph<Action>( "Action" );
+				Transition.OnTransition = Source.View.CreateGraph<Action>( "Action" );
 				EditGraph( Transition.OnTransition );
 				Update();
 
 				SceneEditorSession.Active.Scene.EditLog( "Transition Action Added", Transition.StateMachine );
 			} );
 		}
+
+		menu.AddSeparator();
+
+		menu.AddOption( "Delete", "delete", action: Delete );
 
 		menu.OpenAtCursor( true );
 	}

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 using Editor.NodeEditor;
+using Facepunch.ActionGraphs;
 
 namespace Sandbox.States.Editor;
 
@@ -477,5 +478,19 @@ public class StateMachineView : GraphicsView
 
 			return changed;
 		}
+	}
+
+	public T CreateGraph<T>( string title )
+		where T : Delegate
+	{
+		var graph = ActionGraph.Create<T>( EditorNodeLibrary );
+		var inner = (ActionGraph)graph;
+
+		inner.Title = title;
+		inner.SetParameters(
+			inner.Inputs.Values.Concat( InputDefinition.Target( typeof( GameObject ), StateMachine.GameObject ) ),
+			inner.Outputs.Values.ToArray() );
+
+		return graph;
 	}
 }
