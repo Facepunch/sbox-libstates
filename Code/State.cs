@@ -75,6 +75,12 @@ public sealed class State : IValid
 	{
 		foreach ( var transition in Transitions )
 		{
+			if ( transition.Target == this )
+			{
+				// TODO
+				continue;
+			}
+
 			if ( transition.Delay is { } delay )
 			{
 				if ( delay < prevTime || delay > nextTime )
