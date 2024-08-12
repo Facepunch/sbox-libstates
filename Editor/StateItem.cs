@@ -70,30 +70,69 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		}
 
 		var titleRect = (State.OnEnterState ?? State.OnUpdateState ?? State.OnLeaveState) is not null
-			? new Rect( 0f, Size.y * 0.4f - 12f, Size.x, 24f )
+			? new Rect( 0f, Size.y * 0.35f - 12f, Size.x, 24f )
 			: new Rect( 0f, Size.y * 0.5f - 12f, Size.x, 24f );
 
+		var isEmoji = IsEmoji( State.Name );
+
 		Paint.ClearBrush();
+
+		if ( isEmoji )
+		{
+			Paint.SetFont( "roboto", Size.y * 0.5f, 600 );
+			Paint.SetPen( Color.White );
+			Paint.DrawText( new Rect( 0f, -4f, Size.x, Size.y ), State.Name );
+		}
+		else
+		{
+			Paint.SetFont( "roboto", 12f, 600 );
+			Paint.SetPen( Color.Black.WithAlpha( 0.5f ) );
+			Paint.DrawText( new Rect( titleRect.Position + 2f, titleRect.Size ), State.Name );
+		}
+
 		Paint.SetFont( "roboto", 12f, 600 );
-		Paint.SetPen( Color.Black.WithAlpha( 0.5f ) );
-		Paint.DrawText( new Rect( titleRect.Position + 2f, titleRect.Size ), State.Name );
 
-		DrawActionIcons( 2f );
+		DrawActionIcons( Color.Black.WithAlpha( 0.5f ), true, isEmoji );
 
-		Paint.SetPen( borderColor );
-		Paint.DrawText( titleRect, State.Name );
+		if ( !isEmoji )
+		{
+			Paint.SetPen( borderColor );
+			Paint.DrawText( titleRect, State.Name );
+		}
 
-		DrawActionIcons( 0f );
+		DrawActionIcons( borderColor, false, isEmoji );
 	}
 
-	private void DrawActionIcons( Vector2 offset )
+	private bool IsEmoji( string text )
 	{
-		var pos = new Vector2( Size.x * 0.5f, Size.y * 0.6f ) + offset - 12f;
+		// TODO: this is probably missing tons of them
+		return text.Length == 2 && text[0] >= 0x8000 && char.ConvertToUtf32( text, 0 ) != -1;
+	}
+
+	private void DrawActionIcons( Color color, bool shadow, bool isEmoji )
+	{
+		var pos = new Vector2( Size.x * 0.5f, Size.y * (isEmoji ? 0.5f : 0.6f) ) - 12f;
 		var actionCount = (State.OnEnterState is not null ? 1 : 0)
 			+ (State.OnUpdateState is not null ? 1 : 0)
 			+ (State.OnLeaveState is not null ? 1 : 0);
 
 		pos.x -= (actionCount - 1) * 16f;
+
+		if ( shadow && isEmoji )
+		{
+			Paint.ClearPen();
+			Paint.SetBrush( Color.Black.WithAlpha( 0.9f ) );
+			Paint.DrawRect( new Rect( pos.x - 4f, pos.y - 4f, actionCount * 32f, 32f ), 3f );
+
+			Paint.ClearBrush();
+		}
+
+		if ( shadow )
+		{
+			pos += 2f;
+		}
+
+		Paint.SetPen( color );
 
 		if ( State.OnEnterState is not null )
 		{
