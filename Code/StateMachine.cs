@@ -86,7 +86,7 @@ public sealed class StateMachineComponent : Component
 
 			while ( transitions++ < MaxInstantTransitions && CurrentState?.GetNextTransition( prevTime, _stateTime ) is { } transition )
 			{
-				DoTransition( transition.Id );
+				DoTransition( transition );
 
 				prevTime = 0f;
 
@@ -105,11 +105,28 @@ public sealed class StateMachineComponent : Component
 	}
 
 	[Broadcast( NetPermission.OwnerOnly )]
-	private void DoTransition( int transitionId )
+	private void BroadcastTransition( int transitionId )
 	{
 		var transition = _transitions!.GetValueOrDefault( transitionId )
 			?? throw new Exception( $"Unknown transition id: {transitionId}" );
 
+		DoTransitionInternal( transition );
+	}
+
+	private void DoTransition( Transition transition )
+	{
+		if ( !IsProxy && Network.Active )
+		{
+			BroadcastTransition( transition.Id );
+		}
+		else
+		{
+			DoTransitionInternal( transition );
+		}
+	}
+
+	private void DoTransitionInternal( Transition transition )
+	{
 		var current = CurrentState!;
 
 		Assert.AreEqual( current, transition.Source );
