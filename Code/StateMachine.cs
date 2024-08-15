@@ -56,6 +56,25 @@ public sealed class StateMachineComponent : Component
 		}
 	}
 
+	/// <summary>
+	/// Send a message to trigger a transition with a matching <see cref="Transition.Message"/>.
+	/// </summary>
+	/// <param name="message">Message name.</param>
+	public void SendMessage( string message )
+	{
+		if ( IsProxy )
+		{
+			Log.Warning( $"Can't call {nameof(SendMessage)} on a StateMachine owned by another connection." );
+			return;
+		}
+
+		if ( CurrentState?.GetNextTransition( message ) is { } transition )
+		{
+			DoTransition( transition );
+			_stateTime = 0f;
+		}
+	}
+
 	private static void InvokeSafe( Action? action )
 	{
 		try

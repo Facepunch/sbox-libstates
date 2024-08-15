@@ -71,10 +71,51 @@ public sealed class State : IValid
 		_orderedTransitions.Sort();
 	}
 
+	internal Transition? GetNextTransition( string message )
+	{
+		foreach ( var transition in Transitions )
+		{
+			if ( transition.Message != message )
+			{
+				continue;
+			}
+
+			if ( transition.Target == this )
+			{
+				// TODO
+				continue;
+			}
+
+			if ( transition.Delay is not null )
+			{
+				continue;
+			}
+
+			try
+			{
+				if ( transition.Condition?.Invoke() is not false )
+				{
+					return transition;
+				}
+			}
+			catch ( Exception e )
+			{
+				Log.Error( e );
+			}
+		}
+
+		return null;
+	}
+
 	internal Transition? GetNextTransition( float prevTime, float nextTime )
 	{
 		foreach ( var transition in Transitions )
 		{
+			if ( transition.Message is not null )
+			{
+				continue;
+			}
+
 			if ( transition.Target == this )
 			{
 				// TODO

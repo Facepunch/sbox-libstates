@@ -7,6 +7,7 @@ public sealed class Transition : IComparable<Transition>, IValid
 {
 	private float? _delay;
 	private Func<bool>? _condition;
+	private string? _message;
 
 	/// <summary>
 	/// The state machine containing this transition.
@@ -57,6 +58,20 @@ public sealed class Transition : IComparable<Transition>, IValid
 	}
 
 	/// <summary>
+	/// Optional message string that will trigger this condition.
+	/// Messages are sent with <see cref="StateMachineComponent.SendMessage"/>.
+	/// </summary>
+	public string? Message
+	{
+		get => _message;
+		set
+		{
+			_message = value;
+			Source.InvalidateTransitions();
+		}
+	}
+
+	/// <summary>
 	/// Optional condition to evaluate.
 	/// </summary>
 	public Func<bool>? Condition
@@ -90,14 +105,17 @@ public sealed class Transition : IComparable<Transition>, IValid
 		var conditionCompare = (Condition is null).CompareTo( other.Condition is null );
 		if ( conditionCompare != 0 ) return conditionCompare;
 
+		var messageCompare = (Message is null).CompareTo( other.Message is null );
+		if ( messageCompare != 0 ) return messageCompare;
+
 		return Target.Id.CompareTo( other.Target.Id );
 	}
 
-	internal record Model( int Id, int SourceId, int TargetId, float? Delay, Func<bool>? Condition, Action? OnTransition );
+	internal record Model( int Id, int SourceId, int TargetId, float? Delay, string? Message, Func<bool>? Condition, Action? OnTransition );
 
 	internal Model Serialize()
 	{
-		return new Model( Id, Source.Id, Target.Id, Delay, Condition, OnTransition );
+		return new Model( Id, Source.Id, Target.Id, Delay, Message, Condition, OnTransition );
 	}
 
 	internal void Deserialize( Model model )
@@ -107,6 +125,7 @@ public sealed class Transition : IComparable<Transition>, IValid
 		Assert.AreEqual( Target.Id, model.TargetId );
 
 		Delay = model.Delay;
+		Message = model.Message;
 		Condition = model.Condition;
 		OnTransition = model.OnTransition;
 	}

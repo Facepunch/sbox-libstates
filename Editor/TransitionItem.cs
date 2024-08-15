@@ -204,7 +204,11 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		var conditionRect = new Rect( -width * 0.5f + 16f, -20f, width - 32f, 16f );
 		var actionRect = new Rect( -width * 0.5f + 16f, 4f, width - 32f, 16f );
 
-		(string Icon, string Title)? delayLabel = Transition?.Delay is { } seconds ? ("timer", FormatDuration( seconds )) : null;
+		(string Icon, string Title)? eventLabel = Transition?.Delay is { } seconds
+			? ("timer", FormatDuration( seconds ))
+			: Transition?.Message is { } message
+				? ("email", $"\"{message}\"")
+				: null;
 		var conditionLabel = GetLabelParts( Transition?.Condition, "question_mark", "Condition" );
 		var actionLabel = GetLabelParts( Transition?.OnTransition, "directions_run", "Action" );
 
@@ -216,14 +220,14 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 			conditionRect = conditionRect.Shrink( 0f, 0f, conditionAdvance, 0f );
 
-			DrawLabel( delayLabel, conditionRect, TextFlag.SingleLine | TextFlag.RightBottom );
+			DrawLabel( eventLabel, conditionRect, TextFlag.SingleLine | TextFlag.RightBottom );
 			DrawLabel( actionLabel, actionRect, TextFlag.SingleLine | TextFlag.LeftTop );
 		}
 		else
 		{
-			var delayAdvance = DrawLabel( delayLabel, conditionRect, TextFlag.SingleLine | TextFlag.LeftBottom );
+			var eventAdvance = DrawLabel( eventLabel, conditionRect, TextFlag.SingleLine | TextFlag.LeftBottom );
 
-			conditionRect = conditionRect.Shrink( delayAdvance, 0f, 0f, 0f );
+			conditionRect = conditionRect.Shrink( eventAdvance, 0f, 0f, 0f );
 
 			DrawLabel( conditionLabel, conditionRect, TextFlag.SingleLine | TextFlag.LeftBottom );
 			DrawLabel( actionLabel, actionRect, TextFlag.SingleLine | TextFlag.RightTop );
@@ -323,6 +327,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 					}
 
 					Transition.Delay = seconds;
+					Transition.Message = null;
 					Update();
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
@@ -333,6 +338,31 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 				Update();
 
 				SceneEditorSession.Active.Scene.EditLog( "Transition Delay Removed", Transition.StateMachine );
+			} );
+		}
+		else if ( Transition.Message is { } currentMessage )
+		{
+			var subMenu = menu.AddMenu( "Message", "email" );
+			subMenu.AddLineEdit( "Value", value: currentMessage, autoFocus: true, onSubmit:
+				message =>
+				{
+					if ( string.IsNullOrEmpty( message ) )
+					{
+						return;
+					}
+
+					Transition.Message = message;
+					Transition.Delay = null;
+					Update();
+
+					SceneEditorSession.Active.Scene.EditLog( "Transition Message Changed", Transition.StateMachine );
+				} );
+			subMenu.AddOption( "Clear", "unsubscribe", action: () =>
+			{
+				Transition.Message = null;
+				Update();
+
+				SceneEditorSession.Active.Scene.EditLog( "Transition Message Removed", Transition.StateMachine );
 			} );
 		}
 		else
@@ -349,6 +379,19 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 					Update();
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Added", Transition.StateMachine );
+				} );
+			menu.AddMenu( "Add Message", "email" ).AddLineEdit( "Value", value: "run", autoFocus: true, onSubmit:
+				message =>
+				{
+					if ( string.IsNullOrEmpty( message ) )
+					{
+						return;
+					}
+
+					Transition.Message = message;
+					Update();
+
+					SceneEditorSession.Active.Scene.EditLog( "Transition Message Added", Transition.StateMachine );
 				} );
 		}
 
