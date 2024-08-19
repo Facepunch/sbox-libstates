@@ -49,14 +49,14 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		Layout();
 	}
 
-	private (Vector2 Start, Vector2 End, Vector2 Tangent)? GetLocalStartEnd()
+	private (Vector2 Start, Vector2 End, Vector2 Tangent)? GetSceneStartEnd()
 	{
 		// TODO: transitions to self
 
 		var (index, count) = Source.View.GetTransitionPosition( this );
 
-		var sourceCenter = FromScene( Source.Center );
-		var targetCenter = Target is null ? FromScene( TargetPosition ) : FromScene( Target.Center );
+		var sourceCenter = Source.Center;
+		var targetCenter = Target?.Center ?? TargetPosition;
 
 		if ( (targetCenter - sourceCenter).IsNearZeroLength )
 		{
@@ -126,10 +126,9 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	protected override void OnPaint()
 	{
-		if ( GetLocalStartEnd() is not var (start, end, tangent) )
-		{
-			return;
-		}
+		var start = Vector2.Zero;
+		var end = new Vector2( Size.x, 0f );
+		var tangent = new Vector2( 1f, 0f );
 
 		var normal = tangent.Perpendicular;
 
@@ -232,14 +231,19 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 	{
 		PrepareGeometryChange();
 
-		var (start, end) = (Source.Center, Target?.Center ?? TargetPosition);
+		if ( GetSceneStartEnd() is not var (start, end, tangent) )
+		{
+			Size = 0f;
+		}
+		else
+		{
+			var diff = end - start;
+			var length = diff.Length;
 
-		var diff = end - start;
-		var length = diff.Length;
-
-		Position = start;
-		Size = new Vector2( length, 0f );
-		Rotation = MathF.Atan2( diff.y, diff.x ) * 180f / MathF.PI;
+			Position = start;
+			Size = new Vector2( length, 0f );
+			Rotation = MathF.Atan2( diff.y, diff.x ) * 180f / MathF.PI;
+		}
 
 		Update();
 	}

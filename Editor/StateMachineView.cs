@@ -196,7 +196,15 @@ public class StateMachineView : GraphicsView
 			var oldTarget = _transitionPreview.Target;
 
 			_transitionPreview.TargetPosition = scenePos;
-			_transitionPreview.Target = GetItemAt( scenePos ) as StateItem;
+
+			if ( GetItemAt( scenePos ) is StateItem newTarget && newTarget != _transitionPreview.Source )
+			{
+				_transitionPreview.Target = newTarget;
+			}
+			else
+			{
+				_transitionPreview.Target = null;
+			}
 
 			if ( oldTarget != _transitionPreview.Target )
 			{
@@ -442,7 +450,7 @@ public class StateMachineView : GraphicsView
 
 			foreach ( var item in list )
 			{
-				item.Update();
+				item.Layout();
 			}
 		}
 	}
@@ -501,6 +509,8 @@ public class StateMachineView : GraphicsView
 		{
 			TargetPosition = source.Center
 		};
+
+		_transitionPreview.Layout();
 
 		Add( _transitionPreview );
 	}
