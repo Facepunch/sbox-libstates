@@ -52,6 +52,9 @@ public class StateMachineView : GraphicsView
 	private bool _dragging;
 	private Vector2 _lastMouseScenePosition;
 
+	private Vector2 _lastCenter;
+	private Vector2 _lastScale;
+
 	private readonly Dictionary<State, StateItem> _stateItems = new();
 	private readonly Dictionary<Transition, TransitionItem> _transitionItems = new();
 	private readonly Dictionary<UnorderedPair<int>, List<TransitionItem>> _neighboringTransitions = new( EqualityComparer<UnorderedPair<int>>.Default );
@@ -60,6 +63,8 @@ public class StateMachineView : GraphicsView
 	private bool _wasDraggingTransition;
 
 	public float GridSize => 32f;
+
+	private string ViewCookie => $"statemachine.{StateMachine.Id}";
 
 	public StateMachineView( StateMachineComponent stateMachine, StateMachineEditorWindow window )
 		: base( null )
@@ -271,6 +276,8 @@ public class StateMachineView : GraphicsView
 	[EditorEvent.Frame]
 	private void OnFrame()
 	{
+		SaveViewCookie();
+
 		_wasDraggingTransition = false;
 
 		var needsUpdate = false;
@@ -309,6 +316,65 @@ public class StateMachineView : GraphicsView
 		}
 	}
 
+	private void SaveViewCookie()
+	{
+		var center = Center;
+		var scale = Scale;
+
+		if ( _lastCenter == center && _lastScale == scale )
+		{
+			return;
+		}
+
+		if ( ViewCookie is { } viewCookie )
+		{
+			if ( _lastCenter != center )
+			{
+				EditorCookie.Set( $"{viewCookie}.view.center", center );
+			}
+
+			if ( _lastScale != scale )
+			{
+				EditorCookie.Set( $"{viewCookie}.view.scale", scale );
+			}
+		}
+
+		_lastCenter = center;
+		_lastScale = scale;
+	}
+
+	private void RestoreViewFromCookie()
+	{
+		if ( ViewCookie is not { } cookieName ) return;
+
+		var defaultView = GetDefaultView();
+
+		Scale = EditorCookie.Get( $"{cookieName}.view.scale", defaultView.Scale );
+		Center = EditorCookie.Get( $"{cookieName}.view.center", defaultView.Center );
+	}
+
+	private (Vector2 Center, Vector2 Scale) GetDefaultView()
+	{
+		if ( _stateItems.Count == 0 )
+		{
+			return (Vector2.Zero, Vector2.One);
+		}
+
+		var allBounds = _stateItems.Values
+			.Select( x => new Rect( x.Position, x.Size ) )
+			.ToArray();
+
+		var bounds = allBounds[0];
+
+		foreach ( var rect in allBounds.Skip( 1 ) )
+		{
+			bounds.Add( rect );
+		}
+
+		// TODO: resize to fit
+		return (bounds.Center, Vector2.One);
+	}
+
 	private readonly struct UnorderedPair<T> : IEquatable<UnorderedPair<T>>
 		where T : IEquatable<T>
 	{
@@ -341,6 +407,8 @@ public class StateMachineView : GraphicsView
 		{
 			UpdateTransitionNeighbors();
 		}
+
+		RestoreViewFromCookie();
 	}
 
 	private void UpdateTransitionNeighbors()
