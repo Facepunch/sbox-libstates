@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Linq;
 using Editor;
 using Editor.NodeEditor;
 using Facepunch.ActionGraphs;
-using static Editor.Label;
 
 namespace Sandbox.States.Editor;
 
@@ -133,28 +131,16 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		return result;
 	}
 
-	private enum TransitionKind
+	private (string Icon, string Title, bool Error)? GetLabelParts( Delegate? deleg, string defaultIcon, string defaultTitle )
 	{
-		Default,
-		Conditional,
-		Event
-	}
+		if ( !deleg.TryGetActionGraphImplementation( out var graph, out _ ) ) return null;
 
-	private TransitionKind GetTransitionKind()
-	{
-		if ( Transition?.Condition.TryGetActionGraphImplementation( out var graph, out _ ) is true )
+		if ( graph.HasErrors() )
 		{
-			return TransitionKind.Conditional;
+			return ("error", string.IsNullOrEmpty( graph.Title ) ? defaultTitle : graph.Title, true);
 		}
 
-		return TransitionKind.Default;
-	}
-
-	private (string Icon, string Title)? GetLabelParts( Delegate? deleg, string defaultIcon, string defaultTitle )
-	{
-		return deleg.TryGetActionGraphImplementation( out var graph, out _ )
-			? (string.IsNullOrEmpty( graph.Icon ) ? defaultIcon : graph.Icon, string.IsNullOrEmpty( graph.Title ) ? defaultTitle : graph.Title)
-			: null;
+		return (string.IsNullOrEmpty( graph.Icon ) ? defaultIcon : graph.Icon, string.IsNullOrEmpty( graph.Title ) ? defaultTitle : graph.Title, false);
 	}
 
 	protected override void OnPaint()
@@ -204,10 +190,10 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		var conditionRect = new Rect( -width * 0.5f + 16f, -20f, width - 32f, 16f );
 		var actionRect = new Rect( -width * 0.5f + 16f, 4f, width - 32f, 16f );
 
-		(string Icon, string Title)? eventLabel = Transition?.Delay is { } seconds
-			? ("timer", FormatDuration( seconds ))
+		(string Icon, string Title, bool Error)? eventLabel = Transition?.Delay is { } seconds
+			? ("timer", FormatDuration( seconds ), false)
 			: Transition?.Message is { } message
-				? ("email", $"\"{message}\"")
+				? ("email", $"\"{message}\"", false)
 				: null;
 		var conditionLabel = GetLabelParts( Transition?.Condition, "question_mark", "Condition" );
 		var actionLabel = GetLabelParts( Transition?.OnTransition, "directions_run", "Action" );
@@ -234,20 +220,29 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		}
 	}
 
-	private float DrawLabel( (string Icon, string Title)? label, Rect rect, TextFlag flags )
+	private float DrawLabel( (string Icon, string Title, bool Error)? label, Rect rect, TextFlag flags )
 	{
-		if ( label is not { Icon: var icon, Title: var title } )
+		if ( label is not { Icon: var icon, Title: var title, Error: var error } )
 		{
 			return 0f;
 		}
+
+		var color = Paint.Pen;
 
 		rect = rect.Shrink( 20f, 0f, 0f, 0f );
 
 		var textRect = Paint.MeasureText( rect, title, flags );
 		var iconRect = new Rect( textRect.Left - 18f, rect.Top, 16f, 16f );
 
+		if ( error )
+		{
+			Paint.SetPen( Color.Red.WithAlpha( color.a ) );
+		}
+
 		Paint.DrawIcon( iconRect, icon, 12f );
 		Paint.DrawText( rect, title, flags );
+
+		Paint.SetPen( color );
 
 		return textRect.Width + 20f;
 	}
