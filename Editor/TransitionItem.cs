@@ -249,7 +249,9 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	public void Layout()
 	{
-		var rect = Rect.FromPoints( Source.Center, Target?.Center ?? TargetPosition ).Grow( 64f );
+		PrepareGeometryChange();
+
+		var rect = Rect.FromPoints( Source.Center, Target?.Center ?? TargetPosition ).Grow( 16f );
 
 		Position = rect.Position;
 		Size = rect.Size;
