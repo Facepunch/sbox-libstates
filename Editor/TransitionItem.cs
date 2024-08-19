@@ -12,6 +12,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 	public StateItem? Target { get; set; }
 	public Vector2 TargetPosition { get; set; }
 
+	public override Rect BoundingRect => base.BoundingRect.Grow( 16f );
+
 	public TransitionItem( Transition? transition, StateItem source, StateItem? target )
 		: base( null )
 	{
@@ -40,27 +42,6 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		Source.PositionChanged -= OnStatePositionChanged;
 		Target!.PositionChanged -= OnStatePositionChanged;
-	}
-
-	public override bool Contains( Vector2 localPos )
-	{
-		if ( Transition is null )
-		{
-			return false;
-		}
-
-		if ( GetLocalStartEnd() is not var (start, end, tangent) )
-		{
-			return false;
-		}
-
-		var t = Vector2.Dot( localPos - start, tangent );
-
-		if ( t < 0f || t > (end - start).Length ) return false;
-
-		var s = Vector2.Dot( localPos - start, tangent.Perpendicular );
-
-		return Math.Abs( s ) <= 24f;
 	}
 
 	private void OnStatePositionChanged()
@@ -181,7 +162,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		var width = (end - start).Length;
 
 		Paint.Translate( mid );
-		Paint.Rotate( MathF.Atan2( tangent.y, tangent.x ) * 180f / MathF.PI );
+		// Paint.Rotate( MathF.Atan2( tangent.y, tangent.x ) * 180f / MathF.PI );
 
 		Paint.ClearBrush();
 		Paint.SetPen( color );
@@ -198,7 +179,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		var conditionLabel = GetLabelParts( Transition?.Condition, "question_mark", "Condition" );
 		var actionLabel = GetLabelParts( Transition?.OnTransition, "directions_run", "Action" );
 
-		if ( tangent.x < 0f )
+		if ( Rotation is > 90f or < -90f )
 		{
 			Paint.Rotate( 180f );
 
@@ -251,10 +232,14 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 	{
 		PrepareGeometryChange();
 
-		var rect = Rect.FromPoints( Source.Center, Target?.Center ?? TargetPosition ).Grow( 16f );
+		var (start, end) = (Source.Center, Target?.Center ?? TargetPosition);
 
-		Position = rect.Position;
-		Size = rect.Size;
+		var diff = end - start;
+		var length = diff.Length;
+
+		Position = start;
+		Size = new Vector2( length, 0f );
+		Rotation = MathF.Atan2( diff.y, diff.x ) * 180f / MathF.PI;
 
 		Update();
 	}
