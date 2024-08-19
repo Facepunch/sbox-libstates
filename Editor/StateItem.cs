@@ -132,25 +132,32 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			pos += 2f;
 		}
 
-		Paint.SetPen( color );
+		DrawActionIcon( State.OnEnterState, "login", color, shadow, ref pos );
+		DrawActionIcon( State.OnUpdateState, "update", color, shadow, ref pos );
+		DrawActionIcon( State.OnLeaveState, "logout", color, shadow, ref pos );
+	}
 
-		if ( State.OnEnterState is not null )
+	private void DrawActionIcon( Action? action, string icon, Color color, bool shadow, ref Vector2 pos )
+	{
+		if ( !action.TryGetActionGraphImplementation( out var graph, out _ ) ) return;
+
+		if ( graph.HasErrors() )
 		{
-			Paint.DrawIcon( new Rect( pos.x, pos.y, 24f, 24f ), "login", 20f );
-			pos.x += 32f;
+			Paint.SetPen( shadow ? color : Color.Red.WithAlpha( color.a ) );
+			icon = "error";
+		}
+		else
+		{
+			Paint.SetPen( color );
+
+			if ( !string.IsNullOrEmpty( graph.Icon ) )
+			{
+				icon = graph.Icon;
+			}
 		}
 
-		if ( State.OnUpdateState is not null )
-		{
-			Paint.DrawIcon( new Rect( pos.x, pos.y, 24f, 24f ), "update", 20f );
-			pos.x += 32f;
-		}
-
-		if ( State.OnLeaveState is not null )
-		{
-			Paint.DrawIcon( new Rect( pos.x, pos.y, 24f, 24f ), "logout", 20f );
-			pos.x += 32f;
-		}
+		Paint.DrawIcon( new Rect( pos.x, pos.y, 24f, 24f ), icon, 20f );
+		pos.x += 32f;
 	}
 
 	protected override void OnMousePressed( GraphicsMouseEvent e )
