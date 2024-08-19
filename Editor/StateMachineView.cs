@@ -316,6 +316,15 @@ public class StateMachineView : GraphicsView
 		}
 	}
 
+	[Shortcut( "Reset View", "Home", ShortcutType.Window )]
+	private void OnResetView()
+	{
+		var defaultView = GetDefaultView();
+
+		_lastScale = Scale = defaultView.Scale;
+		_lastCenter = Center = defaultView.Center;
+	}
+
 	private void SaveViewCookie()
 	{
 		var center = Center;
