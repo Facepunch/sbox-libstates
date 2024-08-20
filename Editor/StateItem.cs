@@ -200,7 +200,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 	{
 		foreach ( var transition in State.Transitions )
 		{
-			View.GetTransitionItem( transition )?.Update();
+			View.GetTransitionItem( transition )?.ForceUpdate();
 		}
 	}
 

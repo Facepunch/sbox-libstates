@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Editor;
 using Editor.NodeEditor;
 using Facepunch.ActionGraphs;
@@ -12,7 +14,9 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 	public StateItem? Target { get; set; }
 	public Vector2 TargetPosition { get; set; }
 
-	public override Rect BoundingRect => base.BoundingRect.Grow( 16f );
+	private TransitionLabel? _eventLabel;
+	private TransitionLabel? _conditionLabel;
+	private TransitionLabel? _actionLabel;
 
 	public TransitionItem( Transition? transition, StateItem source, StateItem? target )
 		: base( null )
@@ -112,29 +116,30 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		return result;
 	}
 
-	private (string Icon, string Title, bool Error)? GetLabelParts( Delegate? deleg, string defaultIcon, string defaultTitle )
+	private (bool Hovered, bool Selected) GetSelectedState()
 	{
-		if ( !deleg.TryGetActionGraphImplementation( out var graph, out _ ) ) return null;
+		var selected = Selected || Source.Selected || Transition is null;
+		var hovered = Hovered || Source.Hovered;
 
-		if ( graph.HasErrors() )
-		{
-			return ("error", string.IsNullOrEmpty( graph.Title ) ? defaultTitle : graph.Title, true);
-		}
+		return (hovered, selected);
+	}
 
-		return (string.IsNullOrEmpty( graph.Icon ) ? defaultIcon : graph.Icon, string.IsNullOrEmpty( graph.Title ) ? defaultTitle : graph.Title, false);
+	private Color GetPenColor( bool hovered, bool selected )
+	{
+		return selected
+			? Color.Yellow: hovered
+				? Color.White: Color.White.Darken( 0.125f );
 	}
 
 	protected override void OnPaint()
 	{
-		var start = Vector2.Zero;
-		var end = new Vector2( Size.x, 0f );
+		var start = new Vector2( 0f, Size.y * 0.5f );
+		var end = new Vector2( Size.x, Size.y * 0.5f );
 		var tangent = new Vector2( 1f, 0f );
 
 		var normal = tangent.Perpendicular;
 
-		var selected = Selected || Source.Selected || Transition is null;
-		var hovered = Hovered || Source.Hovered;
-
+		var (hovered, selected) = GetSelectedState();
 		var thickness = selected || hovered ? 6f : 4f;
 		var pulse = MathF.Pow( Math.Max( 1f - (Transition?.LastTransitioned ?? float.PositiveInfinity), 0f ), 8f );
 		var pulseScale = 1f + pulse * 3f;
@@ -143,9 +148,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		var offset = thickness * 0.5f * normal;
 
-		var color = selected
-			? Color.Yellow : hovered
-			? Color.White : Color.White.Darken( 0.125f );
+		var color = GetPenColor( hovered, selected );
 		
 		var arrowEnd = Vector2.Lerp( end, start, pulse );
 		var lineEnd = arrowEnd - tangent * 14f;
@@ -154,77 +157,10 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		Paint.SetBrushLinear( start, end, color.Darken( 0.667f / pulseScale ), color );
 		Paint.DrawPolygon( start - offset, lineEnd - offset, lineEnd + offset, start + offset );
 
+		var arrowScale = hovered || selected ? 1.25f : pulseScale;
+
 		Paint.SetBrush( color );
-		Paint.DrawArrow( arrowEnd - tangent * 16f * pulseScale, arrowEnd, 12f * pulseScale );
-
-		var mid = (start + end) * 0.5f;
-		var width = (end - start).Length;
-
-		Paint.Translate( mid );
-		// Paint.Rotate( MathF.Atan2( tangent.y, tangent.x ) * 180f / MathF.PI );
-
-		Paint.ClearBrush();
-		Paint.SetPen( color );
-		Paint.SetFont( "roboto", 10f );
-
-		var conditionRect = new Rect( -width * 0.5f + 16f, -20f, width - 32f, 16f );
-		var actionRect = new Rect( -width * 0.5f + 16f, 4f, width - 32f, 16f );
-
-		(string Icon, string Title, bool Error)? eventLabel = Transition?.Delay is { } seconds
-			? ("timer", FormatDuration( seconds ), false)
-			: Transition?.Message is { } message
-				? ("email", $"\"{message}\"", false)
-				: null;
-		var conditionLabel = GetLabelParts( Transition?.Condition, "question_mark", "Condition" );
-		var actionLabel = GetLabelParts( Transition?.OnTransition, "directions_run", "Action" );
-
-		if ( Rotation is > 90f or < -90f )
-		{
-			Paint.Rotate( 180f );
-
-			var conditionAdvance = DrawLabel( conditionLabel, conditionRect, TextFlag.SingleLine | TextFlag.RightBottom );
-
-			conditionRect = conditionRect.Shrink( 0f, 0f, conditionAdvance, 0f );
-
-			DrawLabel( eventLabel, conditionRect, TextFlag.SingleLine | TextFlag.RightBottom );
-			DrawLabel( actionLabel, actionRect, TextFlag.SingleLine | TextFlag.LeftTop );
-		}
-		else
-		{
-			var eventAdvance = DrawLabel( eventLabel, conditionRect, TextFlag.SingleLine | TextFlag.LeftBottom );
-
-			conditionRect = conditionRect.Shrink( eventAdvance, 0f, 0f, 0f );
-
-			DrawLabel( conditionLabel, conditionRect, TextFlag.SingleLine | TextFlag.LeftBottom );
-			DrawLabel( actionLabel, actionRect, TextFlag.SingleLine | TextFlag.RightTop );
-		}
-	}
-
-	private float DrawLabel( (string Icon, string Title, bool Error)? label, Rect rect, TextFlag flags )
-	{
-		if ( label is not { Icon: var icon, Title: var title, Error: var error } )
-		{
-			return 0f;
-		}
-
-		var color = Paint.Pen;
-
-		rect = rect.Shrink( 20f, 0f, 0f, 0f );
-
-		var textRect = Paint.MeasureText( rect, title, flags );
-		var iconRect = new Rect( textRect.Left - 18f, rect.Top, 16f, 16f );
-
-		if ( error )
-		{
-			Paint.SetPen( Color.Red.WithAlpha( color.a ) );
-		}
-
-		Paint.DrawIcon( iconRect, icon, 12f );
-		Paint.DrawText( rect, title, flags );
-
-		Paint.SetPen( color );
-
-		return textRect.Width + 20f;
+		Paint.DrawArrow( arrowEnd - tangent * 16f * arrowScale, arrowEnd, 12f * arrowScale );
 	}
 
 	public void Layout()
@@ -240,12 +176,120 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 			var diff = end - start;
 			var length = diff.Length;
 
-			Position = start;
-			Size = new Vector2( length, 0f );
+			Position = start - tangent.Perpendicular * 8f;
+			Size = new Vector2( length, 16f );
 			Rotation = MathF.Atan2( diff.y, diff.x ) * 180f / MathF.PI;
 		}
 
+		UpdateLabels();
 		Update();
+	}
+
+	private void UpdateLabel( ref TransitionLabel? label, string? icon, string? text, Color color )
+	{
+		if ( string.IsNullOrEmpty( icon ) && string.IsNullOrEmpty( text ) )
+		{
+			ClearLabel( ref label );
+			return;
+		}
+
+		label ??= new TransitionLabel( this );
+
+		label.Icon = icon;
+		label.Text = text;
+		label.Color = color;
+	}
+
+	private void UpdateLabel( ref TransitionLabel? label, Delegate? action, string defaultIcon, Color color )
+	{
+		if ( !action.TryGetActionGraphImplementation( out var graph, out _ ) )
+		{
+			ClearLabel( ref label );
+			return;
+		}
+
+		var icon = graph.Icon ?? defaultIcon;
+		var title = graph.Title ?? "Unnamed";
+
+		if ( graph.HasErrors() )
+		{
+			icon = "error";
+			color = Color.Red.Darken( 0.05f ); // Pure red doesn't work??
+		}
+
+		UpdateLabel( ref label, icon, title, color );
+	}
+
+	private void ClearLabel( ref TransitionLabel? label )
+	{
+		label?.Destroy();
+		label = null;
+	}
+
+	private void AlignLabels( bool source, params TransitionLabel?[] labels )
+	{
+		var count = labels.Count( x => x != null );
+		if ( count == 0 ) return;
+
+		const float margin = 8f;
+
+		var maxWidth = (Width - margin * 2f) / count;
+
+		foreach ( var label in labels )
+		{
+			if ( label is null ) continue;
+
+			label.MaxWidth = maxWidth;
+			label.Layout();
+		}
+
+		var totalWidth = labels.Sum( x => x?.Width ?? 0f );
+		var origin = source
+			? new Vector2( margin, Size.y * 0.5f - 24f )
+			: new Vector2( Width - totalWidth - margin, Size.y * 0.5f );
+
+		foreach ( var label in labels )
+		{
+			if ( label is null ) continue;
+
+			label.Position = origin;
+			origin.x += label.Width;
+
+			label.Update();
+		}
+	}
+
+	private void UpdateLabels()
+	{
+		var (hovered, selected) = GetSelectedState();
+		var color = GetPenColor( hovered, selected );
+
+		//
+		// 1: Update label text
+		//
+
+		if ( Transition?.Delay is { } seconds )
+		{
+			UpdateLabel( ref _eventLabel, "timer", FormatDuration( seconds ), color );
+		}
+		else if ( Transition?.Message is { } message )
+		{
+			UpdateLabel( ref _eventLabel, "email", $"\"{message}\"", color );
+		}
+		else
+		{
+			ClearLabel( ref _eventLabel );
+		}
+
+		UpdateLabel( ref _conditionLabel, Transition?.Condition, "question_mark", color );
+		UpdateLabel( ref _actionLabel, Transition?.OnTransition, "directions_run", color );
+
+		//
+		// 2: Reposition
+		//
+
+		AlignLabels( true, _eventLabel, _conditionLabel );
+		AlignLabels( false, _actionLabel );
 	}
 
 	public void Delete()
@@ -418,6 +462,23 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		menu.OpenAtCursor( true );
 	}
 
+	protected override void OnHoverEnter( GraphicsHoverEvent e )
+	{
+		base.OnHoverEnter( e );
+		ForceUpdate();
+	}
+
+	protected override void OnHoverLeave( GraphicsHoverEvent e )
+	{
+		base.OnHoverLeave( e );
+		ForceUpdate();
+	}
+
+	protected override void OnSelectionChanged()
+	{
+		base.OnSelectionChanged();
+		ForceUpdate();
+	}
 	public void Frame()
 	{
 		if ( Transition is null || Transition.LastTransitioned > 1f )
@@ -426,6 +487,12 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		}
 
 		Update();
+	}
+
+	public void ForceUpdate()
+	{
+		Update();
+		UpdateLabels();
 	}
 
 	public int CompareTo( TransitionItem? other )
