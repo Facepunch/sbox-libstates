@@ -169,9 +169,10 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		var count = labels.Count( x => x != null );
 		if ( count == 0 ) return;
 
-		const float margin = 8f;
+		const float sourceMargin = 8f;
+		const float targetMargin = 24f;
 
-		var maxWidth = (Width - margin * 2f) / count;
+		var maxWidth = (Width - sourceMargin - targetMargin) / count;
 
 		foreach ( var label in labels )
 		{
@@ -182,16 +183,34 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		}
 
 		var totalWidth = labels.Sum( x => x?.Width ?? 0f );
+		var flip = Rotation is > 90f or < -90f;
 		var origin = source
-			? new Vector2( margin, Size.y * 0.5f - 28f )
-			: new Vector2( Width - totalWidth - margin, Size.y * 0.5f + 4f );
+			? new Vector2( sourceMargin, Size.y * 0.5f )
+			: new Vector2( Width - totalWidth - targetMargin, Size.y * 0.5f );
+
+		origin.y += source != flip ? -28f : 4f;
+
+		if ( flip )
+		{
+			origin.y += 24f;
+		}
 
 		foreach ( var label in labels )
 		{
 			if ( label is null ) continue;
 
+			if ( flip )
+			{
+				origin.x += label.Width;
+			}
+
 			label.Position = origin;
-			origin.x += label.Width;
+			label.Rotation = flip ? 180f : 0f;
+
+			if ( !flip )
+			{
+				origin.x += label.Width;
+			}
 
 			label.Update();
 		}

@@ -62,7 +62,7 @@ public abstract record TransitionActionGraph<T>( TransitionItem Item ) : ITransi
 			menu.AddOption( "Clear", "clear", action: () =>
 			{
 				Delegate = null;
-				Item.Update();
+				Item.ForceUpdate();
 
 				SceneEditorSession.Active.Scene.EditLog( $"Transition {Title} Removed", Transition.StateMachine );
 			} );
@@ -75,7 +75,7 @@ public abstract record TransitionActionGraph<T>( TransitionItem Item ) : ITransi
 		{
 			Delegate = Item.Source.View.CreateGraph<T>( Title );
 			EditorEvent.Run( "actiongraph.inspect", ActionGraph );
-			Item.Update();
+			Item.ForceUpdate();
 
 			SceneEditorSession.Active.Scene.EditLog( $"Transition {Title} Added", Transition.StateMachine );
 		}

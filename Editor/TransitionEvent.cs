@@ -60,7 +60,7 @@ public record TransitionEvent( TransitionItem Item ) : ITransitionLabelSource
 					}
 
 					Transition.Delay = seconds;
-					Item.Update();
+					Item.ForceUpdate();
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Added", Transition.StateMachine );
 				} );
@@ -73,7 +73,7 @@ public record TransitionEvent( TransitionItem Item ) : ITransitionLabelSource
 					}
 
 					Transition.Message = message;
-					Item.Update();
+					Item.ForceUpdate();
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Message Added", Transition.StateMachine );
 				} );
@@ -94,14 +94,14 @@ public record TransitionEvent( TransitionItem Item ) : ITransitionLabelSource
 
 					Transition.Delay = seconds;
 					Transition.Message = null;
-					Item.Update();
+					Item.ForceUpdate();
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
 				} );
 			menu.AddOption( "Clear", "clear", action: () =>
 			{
 				Transition.Delay = null;
-				Item.Update();
+				Item.ForceUpdate();
 
 				SceneEditorSession.Active.Scene.EditLog( "Transition Delay Removed", Transition.StateMachine );
 			} );
@@ -119,14 +119,14 @@ public record TransitionEvent( TransitionItem Item ) : ITransitionLabelSource
 
 					Transition.Message = message;
 					Transition.Delay = null;
-					Item.Update();
+					Item.ForceUpdate();
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Message Changed", Transition.StateMachine );
 				} );
 			menu.AddOption( "Clear", "clear", action: () =>
 			{
 				Transition.Message = null;
-				Item.Update();
+				Item.ForceUpdate();
 
 				SceneEditorSession.Active.Scene.EditLog( "Transition Message Removed", Transition.StateMachine );
 			} );
