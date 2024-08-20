@@ -227,7 +227,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		e.Accepted = true;
 		Selected = true;
 
-		var menu = new global::Editor.Menu();
+		var menu = new global::Editor.Menu { DeleteOnClose = true };
 
 		menu.AddHeading( "State" );
 

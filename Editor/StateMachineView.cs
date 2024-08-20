@@ -17,6 +17,11 @@ public interface IDeletable
 	void Delete();
 }
 
+public interface IDoubleClickable
+{
+	void DoubleClick();
+}
+
 public class StateMachineView : GraphicsView
 {
 	private static Dictionary<Guid, StateMachineView> AllViews { get; } = new Dictionary<Guid, StateMachineView>();
@@ -109,6 +114,17 @@ public class StateMachineView : GraphicsView
 	protected override void OnMousePress( MouseEvent e )
 	{
 		base.OnMousePress( e );
+
+		if ( e.IsDoubleClick )
+		{
+			if ( GetItemAt( ToScene( e.LocalPosition ) ) is IDoubleClickable target )
+			{
+				target.DoubleClick();
+
+				e.Accepted = true;
+				return;
+			}
+		}
 
 		if ( e.MiddleMouseButton )
 		{
@@ -226,7 +242,7 @@ public class StateMachineView : GraphicsView
 			return;
 		}
 
-		var menu = new global::Editor.Menu();
+		var menu = new global::Editor.Menu { DeleteOnClose = true };
 		var scenePos = ToScene( e.LocalPosition );
 
 		if ( GetItemAt( scenePos ) is IContextMenuSource source )
