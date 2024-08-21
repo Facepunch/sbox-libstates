@@ -146,6 +146,8 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 		Selectable = true;
 
 		ZIndex = -1;
+
+		Cursor = CursorShape.Finger;
 	}
 
 	private void SetFont()

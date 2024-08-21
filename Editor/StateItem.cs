@@ -33,6 +33,10 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		Movable = true;
 		Selectable = true;
 		HoverEvents = true;
+
+		Cursor = CursorShape.Finger;
+
+		UpdateTooltip();
 	}
 
 	public override Rect BoundingRect => base.BoundingRect.Grow( 16f );
@@ -347,12 +351,19 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		SceneEditorSession.Active.Scene.EditLog( "State Removed", State.StateMachine );
 	}
 
+	private void UpdateTooltip()
+	{
+		Tooltip = State.StateMachine.InitialState == State ? $"{State.Name} <i>(initial)</i>" : State.Name;
+	}
+
 	public void Frame()
 	{
 		var hash = HashCode.Combine( State.StateMachine.InitialState == State, State.StateMachine.CurrentState == State );
 		if ( hash == _lastHash ) return;
 
 		_lastHash = hash;
+
+		UpdateTooltip();
 		Update();
 	}
 }

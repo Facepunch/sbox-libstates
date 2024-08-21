@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using Editor;
-using Editor.NodeEditor;
-using Facepunch.ActionGraphs;
 
 namespace Sandbox.States.Editor;
 
@@ -26,22 +23,21 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		Source = source;
 		Target = target;
 
-		Selectable = true;
-		HoverEvents = true;
-
 		ZIndex = -10;
 
 		if ( Transition is not null )
 		{
 			Source.PositionChanged += OnStatePositionChanged;
 			Target!.PositionChanged += OnStatePositionChanged;
-		}
 
-		if ( transition is not null )
-		{
 			_eventLabel = new TransitionLabel( this, new TransitionEvent( this ) );
 			_conditionLabel = new TransitionLabel( this, new TransitionCondition( this ) );
 			_actionLabel = new TransitionLabel( this, new TransitionAction( this ) );
+
+			Cursor = CursorShape.Finger;
+
+			Selectable = true;
+			HoverEvents = true;
 		}
 
 		Layout();
@@ -158,6 +154,11 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 			Position = start - tangent.Perpendicular * 8f;
 			Size = new Vector2( length, 16f );
 			Rotation = MathF.Atan2( diff.y, diff.x ) * 180f / MathF.PI;
+		}
+
+		if ( Target is not null )
+		{
+			Tooltip = $"{Source.State.Name} \u2192 {Target.State.Name}";
 		}
 
 		LabelLayout();
