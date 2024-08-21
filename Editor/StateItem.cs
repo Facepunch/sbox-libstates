@@ -198,10 +198,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			} );
 		}
 
-		menu.AddOption( "Delete", "delete", action: Delete );
-
 		menu.AddSeparator();
-		menu.AddHeading( "Actions" );
 
 		foreach ( var label in Children.OfType<StateLabel>() )
 		{
@@ -211,6 +208,8 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			label.BuildContextMenu( menu );
 		}
 
+		menu.AddSeparator();
+		menu.AddOption( "Delete", "delete", action: Delete );
 
 		menu.OpenAtCursor( true );
 	}
