@@ -124,7 +124,7 @@ public sealed class State : IValid
 
 			if ( transition.Delay is { } delay )
 			{
-				if ( delay < prevTime || delay > nextTime )
+				if ( delay > prevTime || delay > nextTime )
 				{
 					continue;
 				}
