@@ -3,6 +3,7 @@ using System.Linq;
 using Editor;
 using Editor.NodeEditor;
 using Facepunch.ActionGraphs;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Sandbox.States.Editor;
 
@@ -22,6 +23,10 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 	private int _lastHash;
 
+	private readonly StateLabel _enterLabel;
+	private readonly StateLabel _updateLabel;
+	private readonly StateLabel _leaveLabel;
+
 	public StateItem( StateMachineView view, State state )
 	{
 		View = view;
@@ -36,7 +41,12 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 		Cursor = CursorShape.Finger;
 
+		_enterLabel = new StateLabel( this, new StateEnterAction( this ) );
+		_updateLabel = new StateLabel( this, new StateUpdateAction( this ) );
+		_leaveLabel = new StateLabel( this, new StateLeaveAction( this ) );
+
 		UpdateTooltip();
+		AlignLabels();
 	}
 
 	public override Rect BoundingRect => base.BoundingRect.Grow( 16f );
@@ -77,11 +87,9 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			? new Rect( 0f, Size.y * 0.35f - 12f, Size.x, 24f )
 			: new Rect( 0f, Size.y * 0.5f - 12f, Size.x, 24f );
 
-		var isEmoji = IsEmoji( State.Name );
-
 		Paint.ClearBrush();
 
-		if ( isEmoji )
+		if ( IsEmoji )
 		{
 			Paint.SetFont( "roboto", Size.y * 0.5f, 600 );
 			Paint.SetPen( Color.White );
@@ -92,77 +100,13 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 			Paint.SetFont( "roboto", 12f, 600 );
 			Paint.SetPen( Color.Black.WithAlpha( 0.5f ) );
 			Paint.DrawText( new Rect( titleRect.Position + 2f, titleRect.Size ), State.Name );
-		}
 
-		Paint.SetFont( "roboto", 12f, 600 );
-
-		DrawActionIcons( Color.Black.WithAlpha( 0.5f ), true, isEmoji );
-
-		if ( !isEmoji )
-		{
 			Paint.SetPen( borderColor );
 			Paint.DrawText( titleRect, State.Name );
 		}
-
-		DrawActionIcons( borderColor, false, isEmoji );
 	}
 
-	private bool IsEmoji( string text )
-	{
-		// TODO: this is probably missing tons of them
-		return text.Length == 2 && text[0] >= 0x8000 && char.ConvertToUtf32( text, 0 ) != -1;
-	}
-
-	private void DrawActionIcons( Color color, bool shadow, bool isEmoji )
-	{
-		var pos = new Vector2( Size.x * 0.5f, Size.y * (isEmoji ? 0.5f : 0.6f) ) - 12f;
-		var actionCount = (State.OnEnterState is not null ? 1 : 0)
-			+ (State.OnUpdateState is not null ? 1 : 0)
-			+ (State.OnLeaveState is not null ? 1 : 0);
-
-		pos.x -= (actionCount - 1) * 16f;
-
-		if ( shadow && isEmoji )
-		{
-			Paint.ClearPen();
-			Paint.SetBrush( Color.Black.WithAlpha( 0.9f ) );
-			Paint.DrawRect( new Rect( pos.x - 4f, pos.y - 4f, actionCount * 32f, 32f ), 3f );
-
-			Paint.ClearBrush();
-		}
-
-		if ( shadow )
-		{
-			pos += 2f;
-		}
-
-		DrawActionIcon( State.OnEnterState, "login", color, shadow, ref pos );
-		DrawActionIcon( State.OnUpdateState, "update", color, shadow, ref pos );
-		DrawActionIcon( State.OnLeaveState, "logout", color, shadow, ref pos );
-	}
-
-	private void DrawActionIcon( Action? action, string icon, Color color, bool shadow, ref Vector2 pos )
-	{
-		if ( !action.TryGetActionGraphImplementation( out var graph, out _ ) ) return;
-
-		if ( graph.HasErrors() )
-		{
-			Paint.SetPen( shadow ? color : Color.Red.WithAlpha( color.a ) );
-			icon = "error";
-		}
-		else
-		{
-			Paint.SetPen( color );
-
-			if ( !string.IsNullOrEmpty( graph.Icon ) )
-			{
-				icon = graph.Icon;
-			}
-		}
-
-		Paint.DrawIcon( new Rect( pos.x, pos.y, 24f, 24f ), icon, 20f );
-		pos.x += 32f;
-	}
+	public bool IsEmoji => State.Name.Length == 2 && State.Name[0] >= 0x8000 && char.ConvertToUtf32( State.Name, 0 ) != -1;
 
 	protected override void OnMousePressed( GraphicsMouseEvent e )
 	{
@@ -258,46 +202,17 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 		menu.AddSeparator();
 		menu.AddHeading( "Actions" );
-		AddActionOptions( menu, "Enter Action", "login", () => State.OnEnterState, action => State.OnEnterState = action );
-		AddActionOptions( menu, "Update Action", "update", () => State.OnUpdateState, action => State.OnUpdateState = action );
-		AddActionOptions( menu, "Leave Action", "logout", () => State.OnLeaveState, action => State.OnLeaveState = action );
+
+		foreach ( var label in Children.OfType<StateLabel>() )
+		{
+			// If label has contents, let the user right-click on that instead.
+			if ( label.Source.IsValid ) continue;
+
+			label.BuildContextMenu( menu );
+		}
+
 
 		menu.OpenAtCursor( true );
-	}
-
-	private void AddActionOptions( global::Editor.Menu menu, string title, string icon, Func<Action?> getter, Action<Action?> setter )
-	{
-		if ( getter() is {} action )
-		{
-			var subMenu = menu.AddMenu( title, icon );
-
-			subMenu.AddOption( "Edit", "edit", action: () =>
-			{
-				if ( action.TryGetActionGraphImplementation( out var graph, out _ ) )
-				{
-					EditorEvent.Run( "actiongraph.inspect", graph );
-				}
-			} );
-			subMenu.AddOption( "Clear", "clear", action: () =>
-			{
-				setter( null );
-				Update();
-
-				SceneEditorSession.Active.Scene.EditLog( $"State {title} Removed", State.StateMachine );
-			} );
-		}
-		else
-		{
-			menu.AddOption( $"Add {title}", icon, action: () =>
-			{
-				var graph = View.CreateGraph<Action>( title );
-				setter( graph );
-				EditorEvent.Run( "actiongraph.inspect", (ActionGraph)graph );
-				Update();
-
-				SceneEditorSession.Active.Scene.EditLog( $"State {title} Added", State.StateMachine );
-			} );
-		}
 	}
 
 	protected override void OnMoved()
@@ -356,6 +271,41 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		Tooltip = State.StateMachine.InitialState == State ? $"State <b>{State.Name}</b> <i>(initial)</i>" : $"State <b>{State.Name}</b>";
 	}
 
+	private void AlignLabels()
+	{
+		var labels = Children.OfType<StateLabel>()
+			.ToArray();
+
+		foreach ( var label in labels )
+		{
+			label.Layout();
+		}
+
+		var size = new Vector2( 32f, 32f );
+		var totalWidth = labels.Sum( x => x.Width );
+
+		var origin = Size * 0.5f - new Vector2( totalWidth * 0.5f, size.y * 0.5f );
+
+		if ( !IsEmoji )
+		{
+			origin.y += Radius / 6f;
+		}
+
+		foreach ( var label in labels )
+		{
+			label.Position = origin;
+			label.Update();
+
+			origin.x += label.Width;
+		}
+	}
+
+	public void ForceUpdate()
+	{
+		AlignLabels();
+		Update();
+	}
+
 	public void Frame()
 	{
 		var hash = HashCode.Combine( State.StateMachine.InitialState == State, State.StateMachine.CurrentState == State );
@@ -364,6 +314,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		_lastHash = hash;
 
 		UpdateTooltip();
+		AlignLabels();
 		Update();
 	}
 }

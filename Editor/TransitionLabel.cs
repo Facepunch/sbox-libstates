@@ -2,23 +2,10 @@
 
 namespace Sandbox.States.Editor;
 
-public interface ITransitionLabelSource : IDeletable, IDoubleClickable, IValid
-{
-	string Title { get; }
-	string? Description { get; }
-
-	string? Icon { get; }
-	string? Text { get; }
-
-	public Color? Color => null;
-
-	void BuildContextMenu( global::Editor.Menu menu );
-}
-
 public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletable, IDoubleClickable
 {
 	public TransitionItem Transition { get; }
-	public ITransitionLabelSource Source { get; }
+	public ILabelSource Source { get; }
 
 	public float MaxWidth { get; set; } = 256f;
 
@@ -27,7 +14,7 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 	public string? Icon => Source.Icon;
 	public string? Text => Source.Text;
 
-	public TransitionLabel( TransitionItem parent, ITransitionLabelSource source )
+	public TransitionLabel( TransitionItem parent, ILabelSource source )
 		: base( parent )
 	{
 		Transition = parent;
@@ -78,6 +65,8 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 
 	protected override void OnPaint()
 	{
+		if ( !Source.IsValid ) return;
+
 		SetFont();
 
 		var (_, selected) = Transition.GetSelectedState();
@@ -89,8 +78,7 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 
 		if ( !selected && Source.Color is { } overrideColor )
 		{
-			if ( hovered ) color = overrideColor.Desaturate( 0.5f ).Lighten( 0.5f );
-			else color = overrideColor;
+			color = hovered ? overrideColor.Desaturate( 0.5f ).Lighten( 0.5f ) : overrideColor;
 		}
 
 		Paint.ClearBrush();

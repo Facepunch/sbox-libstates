@@ -4,7 +4,7 @@ using System;
 
 namespace Sandbox.States.Editor;
 
-public record TransitionEvent( TransitionItem Item ) : ITransitionLabelSource
+public record TransitionEvent( TransitionItem Item ) : ILabelSource
 {
 	public Transition Transition => Item.Transition!;
 
