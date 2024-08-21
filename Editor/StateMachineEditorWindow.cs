@@ -9,6 +9,8 @@ public class StateMachineEditorWindow : DockWindow
 	internal static List<StateMachineEditorWindow> AllWindows { get; } = new List<StateMachineEditorWindow>();
 	private List<StateMachineView> Views { get; } = new();
 
+	public StateMachineView? FocusedView => Views.LastOrDefault();
+
 	public StateMachineEditorWindow()
 	{
 		DeleteOnClose = true;
@@ -24,8 +26,6 @@ public class StateMachineEditorWindow : DockWindow
 		SetWindowIcon( "smart_toy" );
 
 		AllWindows.Add( this );
-
-		RebuildUI();
 	}
 
 	public StateMachineView Open( StateMachineComponent stateMachine )
@@ -68,9 +68,21 @@ public class StateMachineEditorWindow : DockWindow
 		AllWindows.Add( this );
 	}
 
-	public void RebuildUI()
+	internal void OnFocusView( StateMachineView view )
 	{
+		Views.Remove( view );
+		Views.Add( view );
+	}
 
+	internal void OnRemoveView( StateMachineView view )
+	{
+		Views.Remove( view );
+	}
+
+	[Shortcut( "editor.quit", "CTRL+Q", ShortcutType.Window )]
+	void Quit()
+	{
+		Close();
 	}
 
 	[Shortcut( "editor.save", "CTRL+S", ShortcutType.Window )]
@@ -79,6 +91,30 @@ public class StateMachineEditorWindow : DockWindow
 		var active = Views.FirstOrDefault( x => x is { IsValid: true, Visible: true } );
 
 		active?.StateMachine.Scene.Editor.Save( false );
+	}
+
+	[Shortcut( "editor.cut", "Ctrl+X", ShortcutType.Window )]
+	private void CutSelection()
+	{
+		FocusedView?.CutSelection();
+	}
+
+	[Shortcut( "editor.copy", "Ctrl+C", ShortcutType.Window )]
+	private void CopySelection()
+	{
+		FocusedView?.CopySelection();
+	}
+
+	[Shortcut( "editor.paste", "Ctrl+V", ShortcutType.Window )]
+	private void PasteSelection()
+	{
+		FocusedView?.PasteSelection();
+	}
+
+	[Shortcut( "editor.select-all", "Ctrl+A", ShortcutType.Window )]
+	private void SelectAll()
+	{
+		FocusedView?.SelectAll();
 	}
 }
 

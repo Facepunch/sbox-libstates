@@ -96,15 +96,25 @@ public class StateMachineView : GraphicsView
 		UpdateItems();
 	}
 
+	protected override void OnFocus( FocusChangeReason reason )
+	{
+		base.OnFocus( reason );
+
+		Window.OnFocusView( this );
+	}
+
 	protected override void OnClosed()
 	{
 		base.OnClosed();
+
+		Window.OnRemoveView( this );
 
 		if ( AllViews.TryGetValue( StateMachine.Id, out var view ) && view == this )
 		{
 			AllViews.Remove( StateMachine.Id );
 		}
 	}
+
 	protected override void OnWheel( WheelEvent e )
 	{
 		Zoom( e.Delta > 0 ? 1.1f : 0.90f, e.Position );
@@ -529,6 +539,29 @@ public class StateMachineView : GraphicsView
 		_transitionPreview.Layout();
 
 		Add( _transitionPreview );
+	}
+
+	public void SelectAll()
+	{
+		foreach ( var item in Items.Where( x => x.Selectable ) )
+		{
+			item.Selected = true;
+		}
+	}
+
+	public void CutSelection()
+	{
+
+	}
+
+	public void CopySelection()
+	{
+
+	}
+
+	public void PasteSelection()
+	{
+
 	}
 
 	private static class ItemHelper<TSource, TItem>
