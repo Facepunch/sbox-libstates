@@ -51,16 +51,14 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 		Tooltip = Source.Description;
 	}
 
-	protected override void OnHoverEnter( GraphicsHoverEvent e )
+	protected override void OnSelectionChanged()
 	{
-		base.OnHoverEnter( e );
-		Transition.ForceUpdate();
-	}
+		base.OnSelectionChanged();
 
-	protected override void OnHoverLeave( GraphicsHoverEvent e )
-	{
-		base.OnHoverLeave( e );
-		Transition.ForceUpdate();
+		if ( Selected )
+		{
+			Transition.Selected = true;
+		}
 	}
 
 	protected override void OnPaint()
@@ -69,10 +67,8 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 
 		SetFont();
 
-		var (_, selected) = Transition.GetSelectedState();
-
 		var hovered = Hovered;
-		selected |= Selected;
+		var selected = Selected;
 
 		var color = TransitionItem.GetPenColor( hovered, selected );
 

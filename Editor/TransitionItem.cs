@@ -93,8 +93,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	public (bool Hovered, bool Selected) GetSelectedState()
 	{
-		var selected = Selected || Source.Selected || Transition is null;
-		var hovered = Hovered || Source.Hovered;
+		var selected = Selected || Transition is null;
+		var hovered = Hovered;
 
 		return (hovered, selected);
 	}
@@ -256,23 +256,6 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		menu.OpenAtCursor( true );
 	}
 
-	protected override void OnHoverEnter( GraphicsHoverEvent e )
-	{
-		base.OnHoverEnter( e );
-		ForceUpdate();
-	}
-
-	protected override void OnHoverLeave( GraphicsHoverEvent e )
-	{
-		base.OnHoverLeave( e );
-		ForceUpdate();
-	}
-
-	protected override void OnSelectionChanged()
-	{
-		base.OnSelectionChanged();
-		ForceUpdate();
-	}
 	public void Frame()
 	{
 		if ( Transition is null || Transition.LastTransitioned > 1f )
@@ -285,6 +268,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	public void ForceUpdate()
 	{
+		if ( !IsValid ) return;
+
 		LabelLayout();
 		Update();
 	}

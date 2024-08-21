@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using Sandbox.Diagnostics;
 
 namespace Sandbox.States;
@@ -174,8 +175,6 @@ public sealed class State : IValid
 
 	internal void Deserialize( Model model )
 	{
-		Assert.AreEqual( Id, model.Id );
-
 		Name = model.Name;
 
 		OnEnterState = model.OnEnterState;

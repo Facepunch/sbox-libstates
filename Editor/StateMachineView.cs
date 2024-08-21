@@ -4,6 +4,10 @@ using System;
 using System.Linq;
 using Editor.NodeEditor;
 using Facepunch.ActionGraphs;
+using System.IO.Compression;
+using System.IO;
+using System.Text;
+using Sandbox.Utility;
 
 namespace Sandbox.States.Editor;
 
@@ -295,15 +299,7 @@ public class StateMachineView : GraphicsView
 		if ( e.Key == KeyCode.Delete )
 		{
 			e.Accepted = true;
-
-			var deletable = SelectedItems
-				.OfType<IDeletable>()
-				.ToArray();
-
-			foreach ( var item in deletable )
-			{
-				item.Delete();
-			}
+			DeleteSelection();
 		}
 	}
 
@@ -549,19 +545,129 @@ public class StateMachineView : GraphicsView
 		}
 	}
 
+	private IDisposable PushSerializationScope()
+	{
+		var sceneScope = StateMachine.Scene.Push();
+		var targetScope = ActionGraph.PushTarget( InputDefinition.Target( typeof(GameObject), StateMachine.GameObject ) );
+
+		return new DisposeAction( () =>
+		{
+			targetScope.Dispose();
+			sceneScope.Dispose();
+		} );
+	}
+
 	public void CutSelection()
 	{
-
+		CopySelection();
+		DeleteSelection();
 	}
+
+	private const string ClipboardPrefix = "fsm:";
 
 	public void CopySelection()
 	{
+		using var scope = PushSerializationScope();
 
+		var states = SelectedItems
+			.OfType<StateItem>()
+			.Select( x => x.State )
+			.ToArray();
+
+		if ( states.Length == 0 )
+			return;
+
+		var transitions = SelectedItems
+			.OfType<TransitionItem>()
+			.Where( x => x.Transition != null )
+			.Select( x => x.Transition! )
+			.ToArray();
+
+		using var ms = new MemoryStream();
+		using ( var zs = new GZipStream( ms, CompressionMode.Compress ) )
+		{
+			var data = Encoding.UTF8.GetBytes( StateMachine.Serialize( states, transitions ) );
+			zs.Write( data, 0, data.Length );
+		}
+
+		EditorUtility.Clipboard.Copy( $"{ClipboardPrefix}{Convert.ToBase64String( ms.ToArray() )}" );
+	}
+
+	public void DeleteSelection()
+	{
+		var deletable = SelectedItems
+			.OfType<IDeletable>()
+			.ToArray();
+
+		foreach ( var item in deletable )
+		{
+			item.Delete();
+		}
 	}
 
 	public void PasteSelection()
 	{
+		using var scope = PushSerializationScope();
 
+		var buffer = EditorUtility.Clipboard.Paste();
+		if ( string.IsNullOrWhiteSpace( buffer ) ) return;
+		if ( !buffer.StartsWith( ClipboardPrefix ) ) return;
+
+		buffer = buffer[ClipboardPrefix.Length..];
+
+		byte[] decompressedData;
+
+		try
+		{
+			using var ms = new MemoryStream( Convert.FromBase64String( buffer ) );
+			using var zs = new GZipStream( ms, CompressionMode.Decompress );
+			using var outStream = new MemoryStream();
+			zs.CopyTo( outStream );
+			decompressedData = outStream.ToArray();
+		}
+		catch
+		{
+			Log.Warning( "Paste is not valid base64" );
+			return;
+		}
+
+		try
+		{
+			var decompressed = Encoding.UTF8.GetString( decompressedData );
+			var (states, transitions) = StateMachine.DeserializeInsert( decompressed );
+
+			if ( !states.Any() )
+				return;
+
+			// using var undoScope = UndoScope( "Paste Selection" );
+
+			var averagePos = new Vector2(
+				states.Average( x => x.EditorPosition.x ),
+				states.Average( x => x.EditorPosition.y ) );
+
+			var offset = _lastMouseScenePosition - averagePos;
+
+			foreach ( var item in SelectedItems )
+			{
+				item.Selected = false;
+			}
+
+			foreach ( var state in states )
+			{
+				state.EditorPosition += offset;
+
+				AddStateItem( state );
+			}
+
+			foreach ( var transition in transitions )
+			{
+				AddTransitionItem( transition );
+			}
+		}
+		catch ( Exception e )
+		{
+			Log.Warning( $"Paste is not valid json: {e}" );
+		}
 	}
 
 	private static class ItemHelper<TSource, TItem>

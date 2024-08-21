@@ -45,18 +45,6 @@ public sealed class StateLabel : GraphicsItem, IContextMenuSource, IDeletable, I
 		}
 	}
 
-	protected override void OnHoverEnter( GraphicsHoverEvent e )
-	{
-		base.OnHoverEnter( e );
-		State.ForceUpdate();
-	}
-
-	protected override void OnHoverLeave( GraphicsHoverEvent e )
-	{
-		base.OnHoverLeave( e );
-		State.ForceUpdate();
-	}
-
 	protected override void OnPaint()
 	{
 		if ( !Source.IsValid ) return;

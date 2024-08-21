@@ -246,7 +246,7 @@ public sealed class StateMachineComponent : Component
 	private Model Serialized
 	{
 		get => Serialize();
-		set => Deserialize( value );
+		set => Deserialize( value, true );
 	}
 
 	internal record Model(
@@ -262,13 +262,18 @@ public sealed class StateMachineComponent : Component
 			InitialState?.Id );
 	}
 
-	internal void Deserialize( Model model )
+	internal void Deserialize( Model model, bool replace )
 	{
-		Clear();
+		if ( replace )
+		{
+			Clear();
+		}
+
+		var idOffset = _nextId;
 
 		foreach ( var stateModel in model.States )
 		{
-			var state = new State( this, stateModel.Id );
+			var state = new State( this, stateModel.Id + idOffset );
 
 			_states.Add( state.Id, state );
 			_nextId = Math.Max( _nextId, state.Id + 1 );
@@ -280,9 +285,9 @@ public sealed class StateMachineComponent : Component
 
 		foreach ( var transitionModel in model.Transitions )
 		{
-			var transition = new Transition( transitionModel.Id,
-				_states[transitionModel.SourceId],
-				_states[transitionModel.TargetId] );
+			var transition = new Transition( transitionModel.Id + idOffset,
+				_states[transitionModel.SourceId + idOffset],
+				_states[transitionModel.TargetId + idOffset] );
 
 			_transitions.Add( transition.Id, transition );
 			_nextId = Math.Max( _nextId, transition.Id + 1 );
@@ -292,6 +297,39 @@ public sealed class StateMachineComponent : Component
 			transition.Deserialize( transitionModel );
 		}
 
-		InitialState = model.InitialStateId is { } id ? _states[id] : null;
+		if ( replace )
+		{
+			InitialState = model.InitialStateId is { } id ? _states[id] : null;
+		}
+	}
+
+	public string Serialize( IEnumerable<State> states, IEnumerable<Transition> transitions )
+	{
+		var stateSet = states
+			.Where( x => x.IsValid && x.StateMachine == this )
+			.ToHashSet();
+
+		var transitionSet = transitions
+			.Where( x => x.IsValid && stateSet.Contains( x.Source ) && stateSet.Contains( x.Target ) )
+			.ToHashSet();
+
+		var model = new Model(
+			stateSet.Select( x => x.Serialize() ).OrderBy( x => x.Id ).ToArray(),
+			transitionSet.Select( x => x.Serialize() ).OrderBy( x => x.Id ).ToArray(),
+			null );
+
+		return Json.Serialize( model );
+	}
+
+	public (IReadOnlyList<State> States, IReadOnlyList<Transition> Transitions) DeserializeInsert( string json )
+	{
+		var model = Json.Deserialize<Model>( json );
+		var baseId = _nextId;
+
+		Deserialize( model, false );
+
+		return (
+			States.Where( x => x.Id >= baseId ).OrderBy( x => x.Id ).ToArray(),
+			Transitions.Where( x => x.Id >= baseId ).OrderBy( x => x.Id ).ToArray() );
 	}
 }

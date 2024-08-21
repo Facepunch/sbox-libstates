@@ -144,32 +144,6 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 		base.OnMouseMove( e );
 	}
 
-	private void UpdateTransitions()
-	{
-		foreach ( var transition in State.Transitions )
-		{
-			View.GetTransitionItem( transition )?.ForceUpdate();
-		}
-	}
-
-	protected override void OnHoverEnter( GraphicsHoverEvent e )
-	{
-		base.OnHoverEnter( e );
-		UpdateTransitions();
-	}
-
-	protected override void OnHoverLeave( GraphicsHoverEvent e )
-	{
-		base.OnHoverLeave( e );
-		UpdateTransitions();
-	}
-
-	protected override void OnSelectionChanged()
-	{
-		base.OnSelectionChanged();
-		UpdateTransitions();
-	}
-
 	public void OnContextMenu( ContextMenuEvent e )
 	{
 		e.Accepted = true;
@@ -301,6 +275,8 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 	public void ForceUpdate()
 	{
+		if ( !IsValid ) return;
+
 		AlignLabels();
 		Update();
 	}

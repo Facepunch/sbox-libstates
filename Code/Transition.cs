@@ -120,10 +120,6 @@ public sealed class Transition : IComparable<Transition>, IValid
 
 	internal void Deserialize( Model model )
 	{
-		Assert.AreEqual( Id, model.Id );
-		Assert.AreEqual( Source.Id, model.SourceId );
-		Assert.AreEqual( Target.Id, model.TargetId );
-
 		Delay = model.Delay;
 		Message = model.Message;
 		Condition = model.Condition;
