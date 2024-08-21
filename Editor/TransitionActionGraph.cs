@@ -1,6 +1,8 @@
 ﻿using Editor;
 using Facepunch.ActionGraphs;
 using System;
+using System.Linq;
+using System.Text;
 
 namespace Sandbox.States.Editor;
 
@@ -15,9 +17,37 @@ public abstract record TransitionActionGraph<T>( TransitionItem Item ) : ITransi
 
 	public abstract string? Description { get; }
 
-	string? ITransitionLabelSource.Description => ActionGraph is { Description: { } desc }
-		? $"<p>{Description}</p><p>{desc}</p>"
-		: Description;
+	string? ITransitionLabelSource.Description
+	{
+		get
+		{
+			var builder = new StringBuilder();
+
+			builder.Append( $"<p>{Description}</p>" );
+
+			if ( ActionGraph is {} graph )
+			{
+				if ( graph.Description is { } desc )
+				{
+					builder.Append( $"<p>{desc}</p>" );
+				}
+
+				if ( graph.HasErrors() )
+				{
+					builder.Append( "<p><font color=\"#ff0000\">" );
+
+					foreach ( var message in graph.Messages.Where( x => x.IsError ) )
+					{
+						builder.AppendLine( message.Value );
+					}
+
+					builder.Append( "</font></p>" );
+				}
+			}
+
+			return builder.ToString();
+		}
+	}
 
 	public Color? Color => ActionGraph is { } graph && graph.HasErrors() ? global::Color.Red.Darken( 0.05f ) : (Color?)null;
 

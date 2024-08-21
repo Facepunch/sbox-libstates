@@ -1,6 +1,4 @@
-﻿using System;
-using Editor;
-using Facepunch.ActionGraphs;
+﻿using Editor;
 
 namespace Sandbox.States.Editor;
 
@@ -82,9 +80,9 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 	{
 		SetFont();
 
-		var (hovered, selected) = Transition.GetSelectedState();
+		var (_, selected) = Transition.GetSelectedState();
 
-		hovered |= Hovered;
+		var hovered = Hovered;
 		selected |= Selected;
 
 		var color = TransitionItem.GetPenColor( hovered, selected );
@@ -98,7 +96,7 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 		Paint.ClearBrush();
 		Paint.SetPen( color );
 
-		var iconWidth = string.IsNullOrEmpty( Icon ) ? 0f : 24f;
+		var iconWidth = string.IsNullOrEmpty( Icon ) ? 0f : 22f;
 
 		if ( Width >= 24f && !string.IsNullOrEmpty( Icon ) )
 		{
