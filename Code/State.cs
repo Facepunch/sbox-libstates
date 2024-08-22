@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.Json.Nodes;
-using Sandbox.Diagnostics;
 
 namespace Sandbox.States;
 
@@ -76,21 +74,14 @@ public sealed class State : IValid
 	{
 		foreach ( var transition in Transitions )
 		{
-			if ( transition.Message != message )
-			{
-				continue;
-			}
-
 			if ( transition.Target == this )
 			{
 				// TODO
 				continue;
 			}
 
-			if ( transition.Delay is not null )
-			{
-				continue;
-			}
+			if ( transition.Message != message ) continue;
+			if ( transition.HasDelay ) continue;
 
 			try
 			{
@@ -108,32 +99,70 @@ public sealed class State : IValid
 		return null;
 	}
 
-	internal Transition? GetNextTransition( float prevTime, float nextTime )
+	private Transition? _defaultTransition;
+	private float _defaultTransitionDelay;
+
+	internal void Entered()
 	{
+		// For transitions with a delay range but no condition,
+		// pick a random delay in that range and find the
+		// smallest to be the default transition
+
+		_defaultTransition = null;
+		_defaultTransitionDelay = float.PositiveInfinity;
+
 		foreach ( var transition in Transitions )
 		{
-			if ( transition.Message is not null )
-			{
-				continue;
-			}
-
 			if ( transition.Target == this )
 			{
 				// TODO
 				continue;
 			}
 
-			if ( transition.Delay is { } delay )
+			if ( !transition.IsUnconditional ) continue;
+
+			var minDelay = transition.MinDelay ?? 0f;
+
+			if ( minDelay > _defaultTransitionDelay ) continue;
+
+			var maxDelay = transition.MaxDelay ?? minDelay;
+			var delay = minDelay >= maxDelay ? minDelay : Random.Shared.Float( minDelay, maxDelay );
+
+			if ( delay > _defaultTransitionDelay ) continue;
+
+			_defaultTransition = transition;
+			_defaultTransitionDelay = delay;
+		}
+	}
+
+	internal Transition? GetNextTransition( float prevTime, float nextTime )
+	{
+		// Check conditional transitions within this time window
+
+		foreach ( var transition in Transitions )
+		{
+			if ( transition.Target == this )
 			{
-				if ( delay < prevTime || delay > nextTime )
-				{
-					continue;
-				}
+				// TODO
+				continue;
+			}
+
+			if ( transition.Condition is not { } condition ) continue;
+			if ( transition.Message is not null ) continue;
+
+			if ( transition.MinDelay is { } minDelay && nextTime < minDelay )
+			{
+				continue;
+			}
+
+			if ( transition.MaxDelay is { } maxDelay && prevTime > maxDelay )
+			{
+				continue;
 			}
 
 			try
 			{
-				if ( transition.Condition?.Invoke() is not false )
+				if ( condition.Invoke() )
 				{
 					return transition;
 				}
@@ -144,7 +173,11 @@ public sealed class State : IValid
 			}
 		}
 
-		return null;
+		// Fall back to default transition
+
+		return nextTime >= _defaultTransitionDelay
+			? _defaultTransition
+			: null;
 	}
 
 	public Transition AddTransition( State target )

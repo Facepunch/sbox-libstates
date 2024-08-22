@@ -1,11 +1,12 @@
 ﻿using System;
-using Sandbox.Diagnostics;
 
 namespace Sandbox.States;
 
 public sealed class Transition : IComparable<Transition>, IValid
 {
-	private float? _delay;
+	private float? _minDelay;
+	private float? _maxDelay;
+
 	private Func<bool>? _condition;
 	private string? _message;
 
@@ -34,6 +35,16 @@ public sealed class Transition : IComparable<Transition>, IValid
 	/// </summary>
 	public bool IsValid { get; internal set; }
 
+	/// <summary>
+	/// This transition doesn't have a condition or message event it waits for.
+	/// </summary>
+	internal bool IsUnconditional => Condition is null && Message is null;
+
+	/// <summary>
+	/// This transition has either a min or max delay.
+	/// </summary>
+	public bool HasDelay => MinDelay is not null || MaxDelay is not null;
+
 	public RealTimeSince LastTransitioned { get; internal set; }
 
 	internal Transition( int id, State source, State target )
@@ -44,15 +55,41 @@ public sealed class Transition : IComparable<Transition>, IValid
 	}
 
 	/// <summary>
-	/// Optional delay before this transition is taken.
-	/// If null, this transition can be taken at any time.
+	/// Optional delay before this transition can be taken. If <see cref="MaxDelay"/> is also provided,
+	/// but without a <see cref="Condition"/>, then a uniformly random delay is selected between min and max.
 	/// </summary>
-	public float? Delay
+	public float? MinDelay
 	{
-		get => _delay;
+		get => _minDelay;
 		set
 		{
-			_delay = value;
+			_minDelay = value;
+
+			if ( value is not null )
+			{
+				_message = null;
+			}
+
+			Source.InvalidateTransitions();
+		}
+	}
+
+	/// <summary>
+	/// Optional delay until this transition can no longer be taken. If <see cref="MinDelay"/> is also provided,
+	/// but without a <see cref="Condition"/>, then a uniformly random delay is selected between min and max.
+	/// </summary>
+	public float? MaxDelay
+	{
+		get => _maxDelay;
+		set
+		{
+			_maxDelay = value;
+
+			if ( value is not null )
+			{
+				_message = null;
+			}
+
 			Source.InvalidateTransitions();
 		}
 	}
@@ -67,12 +104,21 @@ public sealed class Transition : IComparable<Transition>, IValid
 		set
 		{
 			_message = value;
+
+			if ( value is not null )
+			{
+				_minDelay = null;
+				_maxDelay = null;
+			}
+
 			Source.InvalidateTransitions();
 		}
 	}
 
 	/// <summary>
-	/// Optional condition to evaluate.
+	/// Optional condition to evaluate. If provided, the transition will be taken
+	/// as soon as the condition evaluates to true, given we are between <see cref="MinDelay"/>
+	/// and <see cref="MaxDelay"/>.
 	/// </summary>
 	public Func<bool>? Condition
 	{
@@ -99,7 +145,7 @@ public sealed class Transition : IComparable<Transition>, IValid
 	{
 		if ( other is null ) return 1;
 
-		var delayCompare = (Delay ?? float.PositiveInfinity).CompareTo( other.Delay ?? float.PositiveInfinity );
+		var delayCompare = (MinDelay ?? float.PositiveInfinity).CompareTo( other.MinDelay ?? float.PositiveInfinity );
 		if ( delayCompare != 0 ) return delayCompare;
 
 		var conditionCompare = (Condition is null).CompareTo( other.Condition is null );
@@ -111,16 +157,37 @@ public sealed class Transition : IComparable<Transition>, IValid
 		return Target.Id.CompareTo( other.Target.Id );
 	}
 
-	internal record Model( int Id, int SourceId, int TargetId, float? Delay, string? Message, Func<bool>? Condition, Action? OnTransition );
+	internal record Model( int Id, int SourceId, int TargetId, float? Delay, float? MinDelay, float? MaxDelay, string? Message, Func<bool>? Condition, Action? OnTransition );
 
 	internal Model Serialize()
 	{
-		return new Model( Id, Source.Id, Target.Id, Delay, Message, Condition, OnTransition );
+		float? delay, min, max;
+
+		if ( MaxDelay is null )
+		{
+			(delay, min, max) = (MinDelay, null, null);
+		}
+		else
+		{
+			(delay, min, max) = (null, MinDelay, MaxDelay);
+		}
+
+		return new Model( Id, Source.Id, Target.Id, delay, min, max, Message, Condition, OnTransition );
 	}
 
 	internal void Deserialize( Model model )
 	{
-		Delay = model.Delay;
+		if ( model.Delay is not null )
+		{
+			MinDelay = model.Delay;
+			MaxDelay = null;
+		}
+		else
+		{
+			MinDelay = model.MinDelay;
+			MaxDelay = model.MaxDelay;
+		}
+
 		Message = model.Message;
 		Condition = model.Condition;
 		OnTransition = model.OnTransition;

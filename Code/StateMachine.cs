@@ -93,6 +93,7 @@ public sealed class StateMachineComponent : Component
 		{
 			_firstUpdate = false;
 
+			CurrentState?.Entered();
 			InvokeSafe( CurrentState?.OnEnterState );
 		}
 
@@ -108,15 +109,7 @@ public sealed class StateMachineComponent : Component
 				DoTransition( transition );
 
 				prevTime = 0f;
-
-				if ( transition.Delay is { } delay )
-				{
-					_stateTime -= delay;
-				}
-				else
-				{
-					_stateTime = 0f;
-				}
+				_stateTime = 0f;
 			}
 		}
 
@@ -157,6 +150,7 @@ public sealed class StateMachineComponent : Component
 
 		CurrentState = current = transition.Target;
 
+		current.Entered();
 		InvokeSafe( current.OnEnterState );
 	}
 

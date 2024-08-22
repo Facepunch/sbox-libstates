@@ -10,17 +10,58 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 
 	public string Title => "Event";
 
-	public string? Description => Transition.Delay is not null
-		? "This transition is taken after a delay."
+	public string? Description => Transition.HasDelay
+		? FormatDelayLong( Transition.MinDelay, Transition.MaxDelay, Transition.Condition is not null )
 		: "This transition is taken after the state machine receives this message.";
 
-	public string? Icon => Transition.Delay is not null ? "timer" : Transition.Message is not null ? "email" : null;
-	public string? Text => Transition.Delay is { } seconds ? FormatDuration( seconds ) : Transition.Message is { } message ? $"\"{message}\"" : null;
+	public string? Icon => Transition.HasDelay
+		? Transition.MaxDelay is null ? "alarm" : "hourglass_top"
+		: Transition.Message is not null ? "email" : null;
+	public string? Text => Transition.HasDelay
+		? FormatDelayShort( Transition.MinDelay, Transition.MaxDelay )
+		: Transition.Message is { } message ? $"\"{message}\"" : null;
 
-	public bool IsValid => Transition.Delay is not null || Transition.Message is not null;
+	public bool IsValid => Transition.HasDelay || Transition.Message is not null;
 
-	private string FormatDuration( float seconds )
+	private static string FormatDelayShort( float? min, float? max )
 	{
+		if ( min is null && max is null )
+		{
+			return "N/A";
+		}
+
+		if ( max is null )
+		{
+			return $"={FormatDuration( min ?? 0f )}";
+		}
+
+		return $"{FormatDuration( min ?? 0f )} - {FormatDuration( max.Value )}";
+	}
+
+	private static string FormatDelayLong( float? min, float? max, bool hasCondition )
+	{
+		if ( min is null && max is null )
+		{
+			return "Can be taken at any time.";
+		}
+
+		var actualMin = min ?? 0f;
+		var actualMax = max ?? actualMin;
+
+		return actualMin >= actualMax
+			? $"Only taken after exactly <b>{FormatDuration( actualMin )}</b>."
+			: hasCondition
+				? $"Can be taken between <b>{FormatDuration( actualMin )}</b> and <b>{FormatDuration( actualMax )}</b>."
+				: $"Taken at a random time between <b>{FormatDuration( actualMin )}</b> and <b>{FormatDuration( actualMax )}</b>.";
+	}
+
+	private static string FormatDuration( float seconds )
+	{
+		if ( seconds < 0.001f )
+		{
+			return "0s";
+		}
+
 		var timeSpan = TimeSpan.FromSeconds( seconds );
 		var result = "";
 
@@ -51,7 +92,7 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 	{
 		if ( !IsValid )
 		{
-			menu.AddMenu( "Add Delay Trigger", "timer" ).AddLineEdit( "Seconds", value: "1", autoFocus: true, onSubmit:
+			menu.AddMenu( "Add Trigger Time", "alarm" ).AddLineEdit( "Seconds", value: "1", autoFocus: true, onSubmit:
 				delayStr =>
 				{
 					if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
@@ -59,7 +100,22 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 						return;
 					}
 
-					Transition.Delay = seconds;
+					Transition.MinDelay = seconds;
+					Transition.MaxDelay = null;
+					Item.ForceUpdate();
+
+					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Added", Transition.StateMachine );
+				} );
+			menu.AddMenu( "Add Time Window", "hourglass_top" ).AddLineEdit( "Max Seconds", value: "1", autoFocus: true, onSubmit:
+				delayStr =>
+				{
+					if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
+					{
+						return;
+					}
+
+					Transition.MinDelay = 0f;
+					Transition.MaxDelay = seconds;
 					Item.ForceUpdate();
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Added", Transition.StateMachine );
@@ -81,26 +137,64 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 			return;
 		}
 
-		if ( Transition.Delay is { } currentDelay )
+		if ( Transition.HasDelay )
 		{
-			menu.AddHeading( "Delay Trigger" );
-			menu.AddLineEdit( "Seconds", value: currentDelay.ToString( "R" ), autoFocus: true, onSubmit:
-				delayStr =>
-				{
-					if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
+			var minDelay = Transition.MinDelay ?? 0f;
+			var maxDelay = Transition.MaxDelay ?? minDelay;
+
+			if ( Transition.MaxDelay is null )
+			{
+				menu.AddHeading( "Trigger Time" );
+				menu.AddLineEdit( "Seconds", value: minDelay.ToString( "R" ), autoFocus: true, onSubmit:
+					delayStr =>
 					{
-						return;
-					}
+						if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
+						{
+							return;
+						}
 
-					Transition.Delay = seconds;
-					Transition.Message = null;
-					Item.ForceUpdate();
+						Transition.MinDelay = seconds;
+						Transition.MaxDelay = null;
+						Item.ForceUpdate();
 
-					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
-				} );
+						SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
+					} );
+			}
+			else
+			{
+				menu.AddHeading( "Time Window" );
+				menu.AddLineEdit( "Min Seconds", value: minDelay.ToString( "R" ), autoFocus: false, onSubmit:
+					delayStr =>
+					{
+						if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
+						{
+							return;
+						}
+
+						Transition.MinDelay = seconds;
+						Item.ForceUpdate();
+
+						SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
+					} );
+				menu.AddLineEdit( "Max Seconds", value: maxDelay.ToString( "R" ), autoFocus: false, onSubmit:
+					delayStr =>
+					{
+						if ( !float.TryParse( delayStr, out var seconds ) || seconds < 0f )
+						{
+							return;
+						}
+
+						Transition.MaxDelay = seconds;
+						Item.ForceUpdate();
+
+						SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
+					} );
+			}
+
 			menu.AddOption( "Clear", "clear", action: () =>
 			{
-				Transition.Delay = null;
+				Transition.MinDelay = null;
+				Transition.MaxDelay = null;
 				Item.ForceUpdate();
 
 				SceneEditorSession.Active.Scene.EditLog( "Transition Delay Removed", Transition.StateMachine );
@@ -118,7 +212,6 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 					}
 
 					Transition.Message = message;
-					Transition.Delay = null;
 					Item.ForceUpdate();
 
 					SceneEditorSession.Active.Scene.EditLog( "Transition Message Changed", Transition.StateMachine );
@@ -136,7 +229,8 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 	public void Delete()
 	{
 		Transition.Message = null;
-		Transition.Delay = null;
+		Transition.MinDelay = null;
+		Transition.MaxDelay = null;
 	}
 
 	public void DoubleClick()
