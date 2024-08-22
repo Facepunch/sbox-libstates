@@ -715,6 +715,27 @@ public class StateMachineView : GraphicsView
 		}
 	}
 
+	private void PostDuplicate( IReadOnlyList<State> states, IReadOnlyList<Transition> transitions, Vector2 offset )
+	{
+		foreach ( var state in states )
+		{
+			state.EditorPosition += offset;
+		}
+
+		UpdateItems();
+		DeselectAll();
+
+		foreach ( var state in states )
+		{
+			GetStateItem( state )!.Selected = true;
+		}
+
+		foreach ( var transition in transitions )
+		{
+			GetTransitionItem( transition )!.Selected = true;
+		}
+	}
+
 	public void DuplicateSelection()
 	{
 		using var scope = PushSerializationScope();
@@ -728,23 +749,7 @@ public class StateMachineView : GraphicsView
 		var serialized = StateMachine.Serialize( selection.States, selection.Transitions );
 		var duplicated = StateMachine.DeserializeInsert( serialized );
 
-		foreach ( var state in duplicated.States )
-		{
-			state.EditorPosition += GridSize;
-		}
-
-		UpdateItems();
-		DeselectAll();
-
-		foreach ( var state in duplicated.States )
-		{
-			GetStateItem( state )!.Selected = true;
-		}
-
-		foreach ( var transition in duplicated.Transitions )
-		{
-			GetTransitionItem( transition )!.Selected = true;
-		}
+		PostDuplicate( duplicated.States, duplicated.Transitions, GridSize );
 	}
 
 	public void PasteSelection()
@@ -778,32 +783,20 @@ public class StateMachineView : GraphicsView
 			LogEdit( "Paste" );
 
 			var decompressed = Encoding.UTF8.GetString( decompressedData );
-			var (states, transitions) = StateMachine.DeserializeInsert( decompressed );
+			var duplicated = StateMachine.DeserializeInsert( decompressed );
 
-			if ( !states.Any() )
+			if ( !duplicated.States.Any() )
 				return;
 
 			// using var undoScope = UndoScope( "Paste Selection" );
 
 			var averagePos = new Vector2(
-				states.Average( x => x.EditorPosition.x ),
-				states.Average( x => x.EditorPosition.y ) );
+				duplicated.States.Average( x => x.EditorPosition.x ),
+				duplicated.States.Average( x => x.EditorPosition.y ) );
 
-			var offset = _lastMouseScenePosition - averagePos;
+			var offset = (_lastMouseScenePosition - averagePos).SnapToGrid( GridSize );
 
-			DeselectAll();
-
-			foreach ( var state in states )
-			{
-				state.EditorPosition += offset;
-
-				AddStateItem( state );
-			}
-
-			foreach ( var transition in transitions )
-			{
-				AddTransitionItem( transition );
-			}
+			PostDuplicate( duplicated.States, duplicated.Transitions, offset );
 		}
 		catch ( Exception e )
 		{
