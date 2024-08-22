@@ -51,7 +51,7 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 		return actualMin >= actualMax
 			? $"Only taken after exactly <b>{FormatDuration( actualMin )}</b>."
 			: hasCondition
-				? $"Can be taken between <b>{FormatDuration( actualMin )}</b> and <b>{FormatDuration( actualMax )}</b>."
+				? $"Taken as soon as a condition is met, but only between <b>{FormatDuration( actualMin )}</b> and <b>{FormatDuration( actualMax )}</b>."
 				: $"Taken at a random time between <b>{FormatDuration( actualMin )}</b> and <b>{FormatDuration( actualMax )}</b>.";
 	}
 
