@@ -15,6 +15,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 	private readonly TransitionLabel? _conditionLabel;
 	private readonly TransitionLabel? _actionLabel;
 
+	public bool IsPreview { get; }
+
 	public TransitionItem( Transition? transition, StateItem source, StateItem? target )
 		: base( null )
 	{
@@ -25,19 +27,26 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		ZIndex = -10;
 
-		if ( Transition is not null )
+		if ( Target is not null )
 		{
 			Source.PositionChanged += OnStatePositionChanged;
-			Target!.PositionChanged += OnStatePositionChanged;
-
-			_eventLabel = new TransitionLabel( this, new TransitionEvent( this ) );
-			_conditionLabel = new TransitionLabel( this, new TransitionCondition( this ) );
-			_actionLabel = new TransitionLabel( this, new TransitionAction( this ) );
+			Target.PositionChanged += OnStatePositionChanged;
 
 			Cursor = CursorShape.Finger;
 
 			Selectable = true;
 			HoverEvents = true;
+		}
+		else
+		{
+			IsPreview = true;
+		}
+
+		if ( Transition is not null )
+		{
+			_eventLabel = new TransitionLabel( this, new TransitionEvent( this ) );
+			_conditionLabel = new TransitionLabel( this, new TransitionCondition( this ) );
+			_actionLabel = new TransitionLabel( this, new TransitionAction( this ) );
 		}
 
 		Layout();
@@ -45,10 +54,27 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	protected override void OnDestroy()
 	{
-		if ( Transition is null ) return;
+		if ( IsPreview ) return;
 
 		Source.PositionChanged -= OnStatePositionChanged;
 		Target!.PositionChanged -= OnStatePositionChanged;
+	}
+
+	protected override void OnMouseMove( GraphicsMouseEvent e )
+	{
+		if ( IsPreview ) return;
+
+		if ( Selected && e.LeftMouseButton )
+		{
+			e.Accepted = true;
+
+			Source.View.StartCreatingTransition( Source, Transition );
+
+			if ( !e.HasShift )
+			{
+				DeleteInternal();
+			}
+		}
 	}
 
 	private void OnStatePositionChanged()
@@ -93,7 +119,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	public (bool Hovered, bool Selected) GetSelectedState()
 	{
-		var selected = Selected || Transition is null;
+		var selected = Selected || IsPreview;
 		var hovered = Hovered;
 
 		return (hovered, selected);
@@ -226,14 +252,18 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 	public void Delete()
 	{
 		Source.View.LogEdit( "Transition Removed" );
+		DeleteInternal();
+	}
 
+	private void DeleteInternal()
+	{
 		Transition!.Remove();
 		Destroy();
 	}
 
 	public void OnContextMenu( ContextMenuEvent e )
 	{
-		if ( Transition is null ) return;
+		if ( IsPreview ) return;
 
 		e.Accepted = true;
 		Selected = true;

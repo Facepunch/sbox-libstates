@@ -192,4 +192,9 @@ public sealed class Transition : IComparable<Transition>, IValid
 		Condition = model.Condition;
 		OnTransition = model.OnTransition;
 	}
+
+	public void CopyFrom( Transition other )
+	{
+		Deserialize( other.Serialize() );
+	}
 }

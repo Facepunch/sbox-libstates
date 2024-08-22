@@ -186,7 +186,15 @@ public class StateMachineView : GraphicsView
 		if ( _transitionPreview?.Target is { } target )
 		{
 			LogEdit( "Transition Added" );
-			AddTransitionItem( _transitionPreview.Source.State.AddTransition( target.State ) );
+
+			var transition = _transitionPreview.Source.State.AddTransition( target.State );
+
+			if ( _transitionPreview.Transition is { } copy )
+			{
+				transition.CopyFrom( copy );
+			}
+
+			AddTransitionItem( transition );
 		}
 
 		if ( _transitionPreview is not null )
@@ -206,7 +214,7 @@ public class StateMachineView : GraphicsView
 	{
 		var scenePos = ToScene( e.LocalPosition );
 
-		if ( _dragging && e.ButtonState.HasFlag( MouseButtons.Left ) )
+		if ( _dragging && e.ButtonState.HasFlag( MouseButtons.Left ) && !_transitionPreview.IsValid() )
 		{
 			if ( !_selectionBox.IsValid() && !SelectedItems.Any( x => x.IsValid() && x.Movable ) && !Items.Any( x => x.Hovered ) )
 			{
@@ -243,7 +251,7 @@ public class StateMachineView : GraphicsView
 
 			_transitionPreview.TargetPosition = scenePos;
 
-			if ( GetItemAt( scenePos ) is StateItem newTarget && newTarget != _transitionPreview.Source )
+			if ( GetStateItemAt( scenePos ) is { } newTarget && newTarget != _transitionPreview.Source )
 			{
 				_transitionPreview.Target = newTarget;
 			}
@@ -263,6 +271,16 @@ public class StateMachineView : GraphicsView
 		e.Accepted = true;
 
 		_lastMouseScenePosition = ToScene( e.LocalPosition );
+	}
+
+	private StateItem? GetStateItemAt( Vector2 scenePos )
+	{
+		return GetItemAt( scenePos ) switch
+		{
+			StateItem stateItem => stateItem,
+			StateLabel stateLabel => stateLabel.State,
+			_ => null
+		};
 	}
 
 	protected override void OnContextMenu( ContextMenuEvent e )
@@ -547,11 +565,13 @@ public class StateMachineView : GraphicsView
 		return (list.IndexOf( item ), list.Count);
 	}
 
-	public void StartCreatingTransition( StateItem source )
+	public void StartCreatingTransition( StateItem source, Transition? copy = null )
 	{
+		DeselectAll();
+
 		_transitionPreview?.Destroy();
 
-		_transitionPreview = new TransitionItem( null, source, null )
+		_transitionPreview = new TransitionItem( copy, source, null )
 		{
 			TargetPosition = source.Center
 		};
@@ -559,6 +579,14 @@ public class StateMachineView : GraphicsView
 		_transitionPreview.Layout();
 
 		Add( _transitionPreview );
+	}
+
+	public void DeselectAll()
+	{
+		foreach ( var item in SelectedItems.Where( x => x.IsValid ).ToArray() )
+		{
+			item.Selected = false;
+		}
 	}
 
 	public void SelectAll()
@@ -621,6 +649,7 @@ public class StateMachineView : GraphicsView
 		using var scope = PushSerializationScope();
 
 		var states = SelectedItems
+			.Where( x => x.IsValid )
 			.OfType<StateItem>()
 			.Select( x => x.State )
 			.ToArray();
@@ -629,6 +658,7 @@ public class StateMachineView : GraphicsView
 			return;
 
 		var transitions = SelectedItems
+			.Where( x => x.IsValid )
 			.OfType<TransitionItem>()
 			.Where( x => x.Transition != null )
 			.Select( x => x.Transition! )
@@ -649,6 +679,7 @@ public class StateMachineView : GraphicsView
 		LogEdit( "Delete Selection" );
 
 		var deletable = SelectedItems
+			.Where( x => x.IsValid )
 			.OfType<IDeletable>()
 			.ToArray();
 
@@ -702,10 +733,7 @@ public class StateMachineView : GraphicsView
 
 			var offset = _lastMouseScenePosition - averagePos;
 
-			foreach ( var item in SelectedItems )
-			{
-				item.Selected = false;
-			}
+			DeselectAll();
 
 			foreach ( var state in states )
 			{
