@@ -4,6 +4,7 @@ using Editor;
 using Editor.NodeEditor;
 using Facepunch.ActionGraphs;
 using static System.Net.Mime.MediaTypeNames;
+using static Editor.Label;
 
 namespace Sandbox.States.Editor;
 
@@ -26,6 +27,8 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 	private readonly StateLabel _enterLabel;
 	private readonly StateLabel _updateLabel;
 	private readonly StateLabel _leaveLabel;
+
+	internal bool HasMoved { get; set; }
 
 	public StateItem( StateMachineView view, State state )
 	{
@@ -155,20 +158,20 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 		menu.AddMenu( "Rename", "edit" ).AddLineEdit( "Rename", State.Name, onSubmit: value =>
 		{
+			View.LogEdit( "State Renamed" );
+
 			State.Name = value ?? "Unnamed";
 			Update();
-
-			SceneEditorSession.Active.Scene.EditLog( "State Renamed", State.StateMachine );
 		}, autoFocus: true );
 
 		if ( State.StateMachine.InitialState != State )
 		{
 			menu.AddOption( "Make Initial", "start", action: () =>
 			{
+				View.LogEdit( "Initial State Assigned" );
+
 				State.StateMachine.InitialState = State;
 				Update();
-
-				SceneEditorSession.Active.Scene.EditLog( "Initial State Assigned", State.StateMachine );
 			} );
 		}
 
@@ -190,8 +193,9 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 	protected override void OnMoved()
 	{
+		HasMoved = true;
+
 		State.EditorPosition = Position.SnapToGrid( View.GridSize );
-		SceneEditorSession.Active.Scene.EditLog( "State Moved", State.StateMachine );
 
 		UpdatePosition();
 	}
@@ -219,6 +223,8 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 	public void Delete()
 	{
+		View.LogEdit( "State Removed" );
+
 		if ( State.StateMachine.InitialState == State )
 		{
 			State.StateMachine.InitialState = null;
@@ -235,8 +241,6 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 		State.Remove();
 		Destroy();
-
-		SceneEditorSession.Active.Scene.EditLog( "State Removed", State.StateMachine );
 	}
 
 	private void UpdateTooltip()

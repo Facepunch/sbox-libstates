@@ -225,10 +225,10 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	public void Delete()
 	{
+		Source.View.LogEdit( "Transition Removed" );
+
 		Transition!.Remove();
 		Destroy();
-
-		SceneEditorSession.Active.Scene.EditLog( "Transition Removed", Transition.StateMachine );
 	}
 
 	public void OnContextMenu( ContextMenuEvent e )

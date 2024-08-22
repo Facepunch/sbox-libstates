@@ -116,5 +116,17 @@ public class StateMachineEditorWindow : DockWindow
 	{
 		FocusedView?.SelectAll();
 	}
+
+	[Shortcut( "editor.undo", "CTRL+Z", ShortcutType.Window )]
+	private void Undo()
+	{
+		FocusedView?.Undo();
+	}
+
+	[Shortcut( "editor.redo", "CTRL+Y", ShortcutType.Window )]
+	private void Redo()
+	{
+		FocusedView?.Redo();
+	}
 }
 

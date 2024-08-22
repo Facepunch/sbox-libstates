@@ -71,6 +71,11 @@ public class StateMachineView : GraphicsView
 	private TransitionItem? _transitionPreview;
 	private bool _wasDraggingTransition;
 
+	private string? _lastEditName;
+
+	private readonly Stack<(string Name, string Json)> _undoStack = new();
+	private readonly Stack<(string Name, string Json)> _redoStack = new();
+
 	public float GridSize => 32f;
 
 	private string ViewCookie => $"statemachine.{StateMachine.Id}";
@@ -98,6 +103,8 @@ public class StateMachineView : GraphicsView
 		MouseTracking = true;
 
 		UpdateItems();
+
+		PushHistoryInternal( "Initial" );
 	}
 
 	protected override void OnFocus( FocusChangeReason reason )
@@ -166,11 +173,20 @@ public class StateMachineView : GraphicsView
 		_selectionBox = null;
 		_dragging = false;
 
+		if ( _stateItems.Values.Any( x => x.HasMoved ) )
+		{
+			LogEdit( "State Moved" );
+
+			foreach ( var stateItem in _stateItems.Values )
+			{
+				stateItem.HasMoved = false;
+			}
+		}
+
 		if ( _transitionPreview?.Target is { } target )
 		{
+			LogEdit( "Transition Added" );
 			AddTransitionItem( _transitionPreview.Source.State.AddTransition( target.State ) );
-
-			SceneEditorSession.Active.Scene.EditLog( "Transition Added", StateMachine );
 		}
 
 		if ( _transitionPreview is not null )
@@ -192,7 +208,7 @@ public class StateMachineView : GraphicsView
 
 		if ( _dragging && e.ButtonState.HasFlag( MouseButtons.Left ) )
 		{
-			if ( _selectionBox == null && !SelectedItems.Any() && !Items.Any( x => x.Hovered ) )
+			if ( !_selectionBox.IsValid() && !SelectedItems.Any( x => x.IsValid() && x.Movable ) && !Items.Any( x => x.Hovered ) )
 			{
 				Add( _selectionBox = new GraphView.SelectionBox( scenePos, this ) );
 			}
@@ -272,6 +288,8 @@ public class StateMachineView : GraphicsView
 
 		menu.AddLineEdit( "Name", autoFocus: true, onSubmit: name =>
 		{
+			LogEdit( "State Added" );
+
 			using var _ = StateMachine.Scene.Push();
 
 			var state = StateMachine.AddState();
@@ -285,8 +303,6 @@ public class StateMachineView : GraphicsView
 			}
 
 			AddStateItem( state );
-
-			SceneEditorSession.Active.Scene.EditLog( "State Added", StateMachine );
 		} );
 
 		menu.OpenAtCursor( true );
@@ -307,6 +323,14 @@ public class StateMachineView : GraphicsView
 	private void OnFrame()
 	{
 		SaveViewCookie();
+
+		if ( _lastEditName is not null )
+		{
+			StateMachine.Scene.EditLog( _lastEditName, StateMachine );
+			PushHistoryInternal( _lastEditName );
+
+			_lastEditName = null;
+		}
 
 		_wasDraggingTransition = false;
 
@@ -557,6 +581,33 @@ public class StateMachineView : GraphicsView
 		} );
 	}
 
+	public void LogEdit( string name )
+	{
+		_lastEditName ??= name;
+	}
+
+	private void PushHistoryInternal( string name )
+	{
+		using var scope = PushSerializationScope();
+
+		try
+		{
+			var serialized = StateMachine.SerializeAll();
+
+			if ( _undoStack.TryPeek( out var prev ) && string.Equals( prev.Json, serialized, StringComparison.Ordinal ) )
+			{
+				return;
+			}
+
+			_redoStack.Clear();
+			_undoStack.Push( (name, serialized) );
+		}
+		catch ( Exception e )
+		{
+			Log.Error( e );
+		}
+	}
+
 	public void CutSelection()
 	{
 		CopySelection();
@@ -595,6 +646,8 @@ public class StateMachineView : GraphicsView
 
 	public void DeleteSelection()
 	{
+		LogEdit( "Delete Selection" );
+
 		var deletable = SelectedItems
 			.OfType<IDeletable>()
 			.ToArray();
@@ -633,6 +686,8 @@ public class StateMachineView : GraphicsView
 
 		try
 		{
+			LogEdit( "Paste" );
+
 			var decompressed = Encoding.UTF8.GetString( decompressedData );
 			var (states, transitions) = StateMachine.DeserializeInsert( decompressed );
 
@@ -668,6 +723,30 @@ public class StateMachineView : GraphicsView
 		{
 			Log.Warning( $"Paste is not valid json: {e}" );
 		}
+	}
+
+	public void Undo()
+	{
+		if ( _undoStack.Count <= 1 ) return;
+
+		_redoStack.Push( _undoStack.Pop() );
+		RestoreFromUndoStack();
+	}
+
+	public void Redo()
+	{
+		if ( !_redoStack.TryPop( out var item ) ) return;
+
+		_undoStack.Push( item );
+		RestoreFromUndoStack();
+	}
+
+	private void RestoreFromUndoStack()
+	{
+		using var scope = PushSerializationScope();
+
+		StateMachine.DeserializeAll( _undoStack.Peek().Json );
+		UpdateItems();
 	}
 
 	private static class ItemHelper<TSource, TItem>

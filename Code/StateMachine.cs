@@ -239,8 +239,8 @@ public sealed class StateMachineComponent : Component
 	[Property]
 	private Model Serialized
 	{
-		get => Serialize();
-		set => Deserialize( value, true );
+		get => SerializeInternal();
+		set => DeserializeInternal( value, true );
 	}
 
 	internal record Model(
@@ -248,7 +248,7 @@ public sealed class StateMachineComponent : Component
 		IReadOnlyList<Transition.Model> Transitions,
 		int? InitialStateId );
 
-	internal Model Serialize()
+	internal Model SerializeInternal()
 	{
 		return new Model(
 			States.Select( x => x.Serialize() ).OrderBy( x => x.Id ).ToArray(),
@@ -256,7 +256,7 @@ public sealed class StateMachineComponent : Component
 			InitialState?.Id );
 	}
 
-	internal void Deserialize( Model model, bool replace )
+	internal void DeserializeInternal( Model model, bool replace )
 	{
 		if ( replace )
 		{
@@ -315,12 +315,22 @@ public sealed class StateMachineComponent : Component
 		return Json.Serialize( model );
 	}
 
+	public string SerializeAll()
+	{
+		return Json.Serialize( Serialized );
+	}
+
+	public void DeserializeAll( string json )
+	{
+		Serialized = Json.Deserialize<Model>( json );
+	}
+
 	public (IReadOnlyList<State> States, IReadOnlyList<Transition> Transitions) DeserializeInsert( string json )
 	{
 		var model = Json.Deserialize<Model>( json );
 		var baseId = _nextId;
 
-		Deserialize( model, false );
+		DeserializeInternal( model, false );
 
 		return (
 			States.Where( x => x.Id >= baseId ).OrderBy( x => x.Id ).ToArray(),

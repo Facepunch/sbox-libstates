@@ -6,6 +6,7 @@ namespace Sandbox.States.Editor;
 
 public record TransitionEvent( TransitionItem Item ) : ILabelSource
 {
+	protected StateMachineView View => Item.Source.View;
 	public Transition Transition => Item.Transition!;
 
 	public string Title => "Event";
@@ -100,11 +101,11 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 						return;
 					}
 
+					View.LogEdit( "Transition Delay Added" );
+
 					Transition.MinDelay = seconds;
 					Transition.MaxDelay = null;
 					Item.ForceUpdate();
-
-					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Added", Transition.StateMachine );
 				} );
 			menu.AddMenu( "Add Time Window", "hourglass_top" ).AddLineEdit( "Max Seconds", value: "1", autoFocus: true, onSubmit:
 				delayStr =>
@@ -114,11 +115,11 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 						return;
 					}
 
+					View.LogEdit( "Transition Delay Added" );
+
 					Transition.MinDelay = 0f;
 					Transition.MaxDelay = seconds;
 					Item.ForceUpdate();
-
-					SceneEditorSession.Active.Scene.EditLog( "Transition Delay Added", Transition.StateMachine );
 				} );
 			menu.AddMenu( "Add Message Trigger", "email" ).AddLineEdit( "Value", value: "run", autoFocus: true, onSubmit:
 				message =>
@@ -128,10 +129,10 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 						return;
 					}
 
+					View.LogEdit( "Transition Message Added" );
+
 					Transition.Message = message;
 					Item.ForceUpdate();
-
-					SceneEditorSession.Active.Scene.EditLog( "Transition Message Added", Transition.StateMachine );
 				} );
 
 			return;
@@ -153,11 +154,11 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 							return;
 						}
 
+						View.LogEdit( "Transition Delay Changed" );
+
 						Transition.MinDelay = seconds;
 						Transition.MaxDelay = null;
 						Item.ForceUpdate();
-
-						SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
 					} );
 			}
 			else
@@ -171,10 +172,10 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 							return;
 						}
 
+						View.LogEdit( "Transition Delay Changed" );
+
 						Transition.MinDelay = seconds;
 						Item.ForceUpdate();
-
-						SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
 					} );
 				menu.AddLineEdit( "Max Seconds", value: maxDelay.ToString( "R" ), autoFocus: false, onSubmit:
 					delayStr =>
@@ -184,20 +185,20 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 							return;
 						}
 
+						View.LogEdit( "Transition Delay Changed" );
+
 						Transition.MaxDelay = seconds;
 						Item.ForceUpdate();
-
-						SceneEditorSession.Active.Scene.EditLog( "Transition Delay Changed", Transition.StateMachine );
 					} );
 			}
 
 			menu.AddOption( "Clear", "clear", action: () =>
 			{
+				View.LogEdit( "Transition Delay Removed" );
+
 				Transition.MinDelay = null;
 				Transition.MaxDelay = null;
 				Item.ForceUpdate();
-
-				SceneEditorSession.Active.Scene.EditLog( "Transition Delay Removed", Transition.StateMachine );
 			} );
 		}
 		else if ( Transition.Message is { } currentMessage )
@@ -211,17 +212,17 @@ public record TransitionEvent( TransitionItem Item ) : ILabelSource
 						return;
 					}
 
+					View.LogEdit( "Transition Message Changed" );
+
 					Transition.Message = message;
 					Item.ForceUpdate();
-
-					SceneEditorSession.Active.Scene.EditLog( "Transition Message Changed", Transition.StateMachine );
 				} );
 			menu.AddOption( "Clear", "clear", action: () =>
 			{
+				View.LogEdit( "Transition Message Removed" );
+
 				Transition.Message = null;
 				Item.ForceUpdate();
-
-				SceneEditorSession.Active.Scene.EditLog( "Transition Message Removed", Transition.StateMachine );
 			} );
 		}
 	}

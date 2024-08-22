@@ -9,7 +9,8 @@ namespace Sandbox.States.Editor;
 public abstract record ActionGraphLabelSource<T> : ILabelSource
 	where T : Delegate
 {
-	protected abstract StateMachineComponent StateMachine { get; }
+	protected abstract StateMachineView View { get; }
+	protected StateMachineComponent StateMachine => View.StateMachine;
 	protected abstract string ContextName { get; }
 	
 	public abstract string Title { get; }
@@ -80,10 +81,10 @@ public abstract record ActionGraphLabelSource<T> : ILabelSource
 			menu.AddOption( "Edit", "edit", action: CreateOrEdit );
 			menu.AddOption( "Clear", "clear", action: () =>
 			{
+				View.LogEdit( $"{ContextName} {Title} Removed" );
+
 				Delegate = null;
 				ForceUpdate();
-
-				SceneEditorSession.Active.Scene.EditLog( $"{ContextName} {Title} Removed", StateMachine );
 			} );
 		}
 	}
@@ -92,11 +93,11 @@ public abstract record ActionGraphLabelSource<T> : ILabelSource
 	{
 		if ( Delegate is null )
 		{
+			View.LogEdit( $"{ContextName} {Title} Added" );
+
 			Delegate = CreateGraph( Title );
 			EditorEvent.Run( "actiongraph.inspect", ActionGraph );
 			ForceUpdate();
-
-			SceneEditorSession.Active.Scene.EditLog( $"{ContextName} {Title} Added", StateMachine );
 		}
 		else
 		{
@@ -133,7 +134,7 @@ public abstract record ActionGraphLabelSource<T> : ILabelSource
 public abstract record StateAction( StateItem Item ) : ActionGraphLabelSource<Action>
 {
 	public State State => Item.State;
-	protected override StateMachineComponent StateMachine => State.StateMachine;
+	protected override StateMachineView View => Item.View;
 	protected override string ContextName => "State";
 	protected override void ForceUpdate()
 	{
@@ -184,7 +185,7 @@ public abstract record TransitionActionGraph<T>( TransitionItem Item ) : ActionG
 	where T : Delegate
 {
 	public Transition Transition => Item.Transition!;
-	protected override StateMachineComponent StateMachine => Transition.StateMachine;
+	protected override StateMachineView View => Item.Source.View;
 	protected override string ContextName => "Transition";
 	protected override void ForceUpdate()
 	{
