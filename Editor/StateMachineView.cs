@@ -8,6 +8,7 @@ using System.IO.Compression;
 using System.IO;
 using System.Text;
 using Sandbox.Utility;
+using Sandbox.UI;
 
 namespace Sandbox.States.Editor;
 
@@ -326,17 +327,6 @@ public class StateMachineView : GraphicsView
 		menu.OpenAtCursor( true );
 	}
 
-	protected override void OnKeyPress( KeyEvent e )
-	{
-		base.OnKeyPress( e );
-
-		if ( e.Key == KeyCode.Delete )
-		{
-			e.Accepted = true;
-			DeleteSelection();
-		}
-	}
-
 	[EditorEvent.Frame]
 	private void OnFrame()
 	{
@@ -644,18 +634,13 @@ public class StateMachineView : GraphicsView
 
 	private const string ClipboardPrefix = "fsm:";
 
-	public void CopySelection()
+	private (IReadOnlyList<State> States, IReadOnlyList<Transition> Transitions) GetSelectionForCopy()
 	{
-		using var scope = PushSerializationScope();
-
 		var states = SelectedItems
 			.Where( x => x.IsValid )
 			.OfType<StateItem>()
 			.Select( x => x.State )
 			.ToArray();
-
-		if ( states.Length == 0 )
-			return;
 
 		var transitions = SelectedItems
 			.Where( x => x.IsValid )
@@ -664,10 +649,21 @@ public class StateMachineView : GraphicsView
 			.Select( x => x.Transition! )
 			.ToArray();
 
+		return (states, transitions);
+	}
+
+	public void CopySelection()
+	{
+		using var scope = PushSerializationScope();
+
+		var selection = GetSelectionForCopy();
+
+		if ( selection.States.Count == 0 ) return;
+
 		using var ms = new MemoryStream();
 		using ( var zs = new GZipStream( ms, CompressionMode.Compress ) )
 		{
-			var data = Encoding.UTF8.GetBytes( StateMachine.Serialize( states, transitions ) );
+			var data = Encoding.UTF8.GetBytes( StateMachine.Serialize( selection.States, selection.Transitions ) );
 			zs.Write( data, 0, data.Length );
 		}
 
@@ -686,6 +682,68 @@ public class StateMachineView : GraphicsView
 		foreach ( var item in deletable )
 		{
 			item.Delete();
+		}
+	}
+
+	public void FlipSelection()
+	{
+		LogEdit( "Flip Selection" );
+
+		var flippable = SelectedItems
+			.Where( x => x.IsValid )
+			.OfType<TransitionItem>()
+			.Where( x => x is { Transition: not null, IsPreview: false } )
+			.Select( x => x.Transition! )
+			.ToArray();
+
+		var flipped = new HashSet<Transition>();
+
+		foreach ( var item in flippable )
+		{
+			var copy = item.Target.AddTransition( item.Source );
+			copy.CopyFrom( item );
+			item.Remove();
+
+			flipped.Add( copy );
+		}
+
+		UpdateItems();
+
+		foreach ( var item in _transitionItems.Values )
+		{
+			item.Selected = item.Transition is not null && flipped.Contains( item.Transition );
+		}
+	}
+
+	public void DuplicateSelection()
+	{
+		using var scope = PushSerializationScope();
+
+		var selection = GetSelectionForCopy();
+
+		// TODO: duplicate transitions only?
+
+		if ( selection.States.Count == 0 ) return;
+
+		var serialized = StateMachine.Serialize( selection.States, selection.Transitions );
+		var duplicated = StateMachine.DeserializeInsert( serialized );
+
+		foreach ( var state in duplicated.States )
+		{
+			state.EditorPosition += GridSize;
+		}
+
+		UpdateItems();
+		DeselectAll();
+
+		foreach ( var state in duplicated.States )
+		{
+			GetStateItem( state )!.Selected = true;
+		}
+
+		foreach ( var transition in duplicated.Transitions )
+		{
+			GetTransitionItem( transition )!.Selected = true;
 		}
 	}
 

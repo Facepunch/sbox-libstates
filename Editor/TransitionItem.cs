@@ -255,6 +255,20 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 		DeleteInternal();
 	}
 
+	public void Flip()
+	{
+		if ( IsPreview ) return;
+
+		Source.View.LogEdit( "Transition Flipped" );
+
+		var copy = Target!.State.AddTransition( Source.State );
+
+		copy.CopyFrom( Transition! );
+		Transition!.Remove();
+
+		Source.View.UpdateItems();
+	}
+
 	private void DeleteInternal()
 	{
 		Transition!.Remove();

@@ -93,28 +93,46 @@ public class StateMachineEditorWindow : DockWindow
 		active?.StateMachine.Scene.Editor.Save( false );
 	}
 
-	[Shortcut( "editor.cut", "Ctrl+X", ShortcutType.Window )]
+	[Shortcut( "editor.cut", "CTRL+X", ShortcutType.Window )]
 	private void CutSelection()
 	{
 		FocusedView?.CutSelection();
 	}
 
-	[Shortcut( "editor.copy", "Ctrl+C", ShortcutType.Window )]
+	[Shortcut( "editor.copy", "CTRL+C", ShortcutType.Window )]
 	private void CopySelection()
 	{
 		FocusedView?.CopySelection();
 	}
 
-	[Shortcut( "editor.paste", "Ctrl+V", ShortcutType.Window )]
+	[Shortcut( "editor.paste", "CTRL+V", ShortcutType.Window )]
 	private void PasteSelection()
 	{
 		FocusedView?.PasteSelection();
 	}
 
-	[Shortcut( "editor.select-all", "Ctrl+A", ShortcutType.Window )]
+	[Shortcut( "editor.select-all", "CTRL+A", ShortcutType.Window )]
 	private void SelectAll()
 	{
 		FocusedView?.SelectAll();
+	}
+
+	[Shortcut( "editor.delete", "DEL" )]
+	private void Delete()
+	{
+		FocusedView?.DeleteSelection();
+	}
+
+	[Shortcut( "editor.flip", "TAB" )]
+	private void Flip()
+	{
+		FocusedView?.FlipSelection();
+	}
+
+	[Shortcut( "editor.duplicate", "CTRL+D" )]
+	private void Duplicate()
+	{
+		FocusedView?.DuplicateSelection();
 	}
 
 	[Shortcut( "editor.undo", "CTRL+Z", ShortcutType.Window )]
