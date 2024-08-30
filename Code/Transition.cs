@@ -87,7 +87,7 @@ public sealed class Transition : IComparable<Transition>, IValid
 		get
 		{
 			var min = Math.Max( 0f, MinDelay ?? 0f );
-			var max = Math.Max( MaxDelay ?? (Condition is not null ? float.PositiveInfinity : min), min );
+			var max = Math.Max( MaxDelay ?? (IsConditional ? float.PositiveInfinity : min), min );
 
 			return (min, max);
 		}
@@ -137,8 +137,11 @@ public sealed class Transition : IComparable<Transition>, IValid
 	{
 		if ( other is null ) return 1;
 
-		var delayCompare = (MinDelay ?? float.PositiveInfinity).CompareTo( other.MinDelay ?? float.PositiveInfinity );
-		if ( delayCompare != 0 ) return delayCompare;
+		var minDelayCompare = (MinDelay ?? float.PositiveInfinity).CompareTo( other.MinDelay ?? float.PositiveInfinity );
+		if ( minDelayCompare != 0 ) return minDelayCompare;
+
+		var maxDelayCompare = (MaxDelay ?? float.PositiveInfinity).CompareTo( other.MaxDelay ?? float.PositiveInfinity );
+		if ( maxDelayCompare != 0 ) return maxDelayCompare;
 
 		var conditionCompare = (Condition is null).CompareTo( other.Condition is null );
 		if ( conditionCompare != 0 ) return conditionCompare;
