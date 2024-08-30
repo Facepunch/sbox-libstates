@@ -69,11 +69,6 @@ public sealed class StateLabel : GraphicsItem, IContextMenuSource, IDeletable, I
 		Paint.DrawIcon( LocalRect, Icon, 24f );
 	}
 
-	public void BuildContextMenu( global::Editor.Menu menu )
-	{
-		Source.BuildContextMenu( menu );
-	}
-
 	public void OnContextMenu( ContextMenuEvent e )
 	{
 		e.Accepted = true;
@@ -82,7 +77,7 @@ public sealed class StateLabel : GraphicsItem, IContextMenuSource, IDeletable, I
 
 		var menu = new global::Editor.Menu { DeleteOnClose = true };
 
-		BuildContextMenu( menu );
+		Source.BuildModifyContextMenu( menu );
 
 		menu.OpenAtCursor( true );
 	}

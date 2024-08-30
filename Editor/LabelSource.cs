@@ -1,5 +1,4 @@
-﻿
-namespace Sandbox.States.Editor;
+﻿namespace Sandbox.States.Editor;
 
 /// <summary>
 /// Something that is represented as a label on a state or transition.
@@ -14,5 +13,6 @@ public interface ILabelSource : IDeletable, IDoubleClickable, IValid
 
 	public Color? Color => null;
 
-	void BuildContextMenu( global::Editor.Menu menu );
+	void BuildAddContextMenu( global::Editor.Menu menu );
+	void BuildModifyContextMenu( global::Editor.Menu menu );
 }

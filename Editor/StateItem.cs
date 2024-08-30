@@ -179,10 +179,7 @@ public sealed class StateItem : GraphicsItem, IContextMenuSource, IDeletable
 
 		foreach ( var label in Children.OfType<StateLabel>() )
 		{
-			// If label has contents, let the user right-click on that instead.
-			if ( label.Source.IsValid ) continue;
-
-			label.BuildContextMenu( menu );
+			label.Source.BuildAddContextMenu( menu );
 		}
 
 		menu.AddSeparator();

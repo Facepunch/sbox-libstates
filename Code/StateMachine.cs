@@ -42,9 +42,12 @@ public sealed class StateMachineComponent : Component
 		private set => CurrentStateId = value?.Id;
 	}
 
-	[Property] private int? CurrentStateId { get; set; }
+	/// <summary>
+	/// How long have we been in the current state?
+	/// </summary>
+	public float StateTime { get; private set; }
 
-	private float _stateTime;
+	[Property] private int? CurrentStateId { get; set; }
 
 	private bool _firstUpdate = true;
 
@@ -71,7 +74,6 @@ public sealed class StateMachineComponent : Component
 		if ( CurrentState?.GetNextTransition( message ) is { } transition )
 		{
 			DoTransition( transition );
-			_stateTime = 0f;
 		}
 	}
 
@@ -100,16 +102,14 @@ public sealed class StateMachineComponent : Component
 		if ( !Network.IsProxy )
 		{
 			var transitions = 0;
-			var prevTime = _stateTime;
+			var prevTime = StateTime;
 
-			_stateTime += Time.Delta;
+			StateTime += Time.Delta;
 
-			while ( transitions++ < MaxInstantTransitions && CurrentState?.GetNextTransition( prevTime, _stateTime ) is { } transition )
+			while ( transitions++ < MaxInstantTransitions && CurrentState?.GetNextTransition( prevTime, StateTime ) is { } transition )
 			{
 				DoTransition( transition );
-
 				prevTime = 0f;
-				_stateTime = 0f;
 			}
 		}
 
@@ -149,6 +149,7 @@ public sealed class StateMachineComponent : Component
 		transition.LastTransitioned = 0f;
 
 		CurrentState = current = transition.Target;
+		StateTime = 0f;
 
 		current.Entered();
 		InvokeSafe( current.OnEnterState );
@@ -232,6 +233,7 @@ public sealed class StateMachineComponent : Component
 		_transitions.Clear();
 
 		InitialState = null;
+		StateTime = 0f;
 
 		_nextId = 0;
 	}

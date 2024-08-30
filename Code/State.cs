@@ -81,7 +81,10 @@ public sealed class State : IValid
 			}
 
 			if ( transition.Message != message ) continue;
-			if ( transition.HasDelay ) continue;
+
+			var (minDelay, maxDelay) = transition.DelayRange;
+
+			if ( StateMachine.StateTime < minDelay || StateMachine.StateTime > maxDelay ) continue;
 
 			try
 			{
@@ -119,13 +122,12 @@ public sealed class State : IValid
 				continue;
 			}
 
-			if ( !transition.IsUnconditional ) continue;
+			if ( transition.IsConditional ) continue;
 
-			var minDelay = transition.MinDelay ?? 0f;
+			var (minDelay, maxDelay) = transition.DelayRange;
 
 			if ( minDelay > _defaultTransitionDelay ) continue;
 
-			var maxDelay = transition.MaxDelay ?? minDelay;
 			var delay = minDelay >= maxDelay ? minDelay : Random.Shared.Float( minDelay, maxDelay );
 
 			if ( delay > _defaultTransitionDelay ) continue;
@@ -150,12 +152,9 @@ public sealed class State : IValid
 			if ( transition.Condition is not { } condition ) continue;
 			if ( transition.Message is not null ) continue;
 
-			if ( transition.MinDelay is { } minDelay && nextTime < minDelay )
-			{
-				continue;
-			}
+			var (minDelay, maxDelay) = transition.DelayRange;
 
-			if ( transition.MaxDelay is { } maxDelay && prevTime > maxDelay )
+			if ( nextTime < minDelay || prevTime > maxDelay )
 			{
 				continue;
 			}

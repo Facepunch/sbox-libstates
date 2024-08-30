@@ -36,9 +36,9 @@ public sealed class Transition : IComparable<Transition>, IValid
 	public bool IsValid { get; internal set; }
 
 	/// <summary>
-	/// This transition doesn't have a condition or message event it waits for.
+	/// This transition has either a <see cref="Condition"/> or <see cref="Message"/>.
 	/// </summary>
-	internal bool IsUnconditional => Condition is null && Message is null;
+	public bool IsConditional => Condition is not null || Message is not null;
 
 	/// <summary>
 	/// This transition has either a min or max delay.
@@ -64,12 +64,6 @@ public sealed class Transition : IComparable<Transition>, IValid
 		set
 		{
 			_minDelay = value;
-
-			if ( value is not null )
-			{
-				_message = null;
-			}
-
 			Source.InvalidateTransitions();
 		}
 	}
@@ -84,13 +78,18 @@ public sealed class Transition : IComparable<Transition>, IValid
 		set
 		{
 			_maxDelay = value;
-
-			if ( value is not null )
-			{
-				_message = null;
-			}
-
 			Source.InvalidateTransitions();
+		}
+	}
+
+	public (float Min, float Max) DelayRange
+	{
+		get
+		{
+			var min = Math.Max( 0f, MinDelay ?? 0f );
+			var max = Math.Max( MaxDelay ?? (Condition is not null ? float.PositiveInfinity : min), min );
+
+			return (min, max);
 		}
 	}
 
@@ -104,13 +103,6 @@ public sealed class Transition : IComparable<Transition>, IValid
 		set
 		{
 			_message = value;
-
-			if ( value is not null )
-			{
-				_minDelay = null;
-				_maxDelay = null;
-			}
-
 			Source.InvalidateTransitions();
 		}
 	}
@@ -161,18 +153,7 @@ public sealed class Transition : IComparable<Transition>, IValid
 
 	internal Model Serialize()
 	{
-		float? delay, min, max;
-
-		if ( MaxDelay is null )
-		{
-			(delay, min, max) = (MinDelay, null, null);
-		}
-		else
-		{
-			(delay, min, max) = (null, MinDelay, MaxDelay);
-		}
-
-		return new Model( Id, Source.Id, Target.Id, delay, min, max, Message, Condition, OnTransition );
+		return new Model( Id, Source.Id, Target.Id, null, MinDelay, MaxDelay, Message, Condition, OnTransition );
 	}
 
 	internal void Deserialize( Model model )

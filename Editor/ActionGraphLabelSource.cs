@@ -20,6 +20,8 @@ public abstract record ActionGraphLabelSource<T> : ILabelSource
 
 	public abstract string? Description { get; }
 
+	public bool IsValid => Delegate is not null;
+
 	string? ILabelSource.Description
 	{
 		get
@@ -57,36 +59,30 @@ public abstract record ActionGraphLabelSource<T> : ILabelSource
 	protected abstract string DefaultIcon { get; }
 	protected abstract T? Delegate { get; set; }
 
-	public bool IsValid => ActionGraph is not null;
-
 	protected ActionGraph? ActionGraph
 	{
 		get => Delegate.TryGetActionGraphImplementation( out var graph, out _ ) ? graph : null;
 		set => Delegate = (ActionGraph<T>?)value;
 	}
 
-	public void BuildContextMenu( global::Editor.Menu menu )
+	public void BuildAddContextMenu( global::Editor.Menu menu )
 	{
-		if ( !IsValid )
-		{
-			menu.AddOption( $"Add {Title}", DefaultIcon, action: CreateOrEdit );
+		if ( ActionGraph is not null ) return;
 
-			return;
-		}
+		menu.AddOption( $"Add {Title}", DefaultIcon, action: CreateOrEdit );
+	}
 
+	public void BuildModifyContextMenu( global::Editor.Menu menu )
+	{
 		menu.AddHeading( Title );
-
-		if ( Delegate is not null )
+		menu.AddOption( "Edit", "edit", action: CreateOrEdit );
+		menu.AddOption( "Clear", "clear", action: () =>
 		{
-			menu.AddOption( "Edit", "edit", action: CreateOrEdit );
-			menu.AddOption( "Clear", "clear", action: () =>
-			{
-				View.LogEdit( $"{ContextName} {Title} Removed" );
+			View.LogEdit( $"{ContextName} {Title} Removed" );
 
-				Delegate = null;
-				ForceUpdate();
-			} );
-		}
+			Delegate = null;
+			ForceUpdate();
+		} );
 	}
 
 	private void CreateOrEdit()

@@ -11,7 +11,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 	public StateItem? Target { get; set; }
 	public Vector2 TargetPosition { get; set; }
 
-	private readonly TransitionLabel? _eventLabel;
+	private readonly TransitionLabel? _delayLabel;
+	private readonly TransitionLabel? _messageLabel;
 	private readonly TransitionLabel? _conditionLabel;
 	private readonly TransitionLabel? _actionLabel;
 
@@ -44,7 +45,8 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		if ( Transition is not null )
 		{
-			_eventLabel = new TransitionLabel( this, new TransitionEvent( this ) );
+			_delayLabel = new TransitionLabel( this, new TransitionDelay( this ) );
+			_messageLabel = new TransitionLabel( this, new TransitionMessage( this ) );
 			_conditionLabel = new TransitionLabel( this, new TransitionCondition( this ) );
 			_actionLabel = new TransitionLabel( this, new TransitionAction( this ) );
 		}
@@ -245,7 +247,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 	private void LabelLayout()
 	{
-		AlignLabels( true, _eventLabel, _conditionLabel );
+		AlignLabels( true, _delayLabel, _messageLabel, _conditionLabel );
 		AlignLabels( false, _actionLabel );
 	}
 
@@ -288,10 +290,7 @@ public sealed partial class TransitionItem : GraphicsItem, IContextMenuSource, I
 
 		foreach ( var label in Children.OfType<TransitionLabel>() )
 		{
-			// If label has contents, let the user right-click on that instead.
-			if ( label.Source.IsValid ) continue;
-
-			label.BuildContextMenu( menu );
+			label.Source.BuildAddContextMenu( menu );
 		}
 
 		menu.AddSeparator();

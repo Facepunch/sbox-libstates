@@ -93,11 +93,6 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 		}
 	}
 
-	public void BuildContextMenu( global::Editor.Menu menu )
-	{
-		Source.BuildContextMenu( menu );
-	}
-
 	public void OnContextMenu( ContextMenuEvent e )
 	{
 		e.Accepted = true;
@@ -106,7 +101,7 @@ public sealed class TransitionLabel : GraphicsItem, IContextMenuSource, IDeletab
 
 		var menu = new global::Editor.Menu { DeleteOnClose = true };
 
-		BuildContextMenu( menu );
+		Source.BuildModifyContextMenu( menu );
 
 		menu.OpenAtCursor( true );
 	}
