@@ -1,9 +1,9 @@
 ﻿using Editor;
+using Editor.ActionGraphs;
 using Facepunch.ActionGraphs;
 using System;
 using System.Linq;
 using System.Text;
-using Sandbox.ActionGraphs;
 
 namespace Sandbox.States.Editor;
 
@@ -93,12 +93,12 @@ public abstract record ActionGraphLabelSource<T> : ILabelSource
 			View.LogEdit( $"{ContextName} {Title} Added" );
 
 			Delegate = CreateGraph( Title );
-			EditorEvent.Run( "actiongraph.inspect", ActionGraph );
+			ActionGraphView.Open( ActionGraph );
 			ForceUpdate();
 		}
 		else
 		{
-			EditorEvent.Run( "actiongraph.inspect", ActionGraph );
+			ActionGraphView.Open( ActionGraph );
 		}
 	}
 
