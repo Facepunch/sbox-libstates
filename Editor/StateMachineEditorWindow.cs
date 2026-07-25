@@ -31,18 +31,19 @@ public class StateMachineEditorWindow : DockWindow
 	public StateMachineView Open( StateMachineComponent stateMachine )
 	{
 		var view = new StateMachineView( stateMachine, this );
+		var dockWidget = DockManager.CreateDockWidget( view.WindowTitle, "smart_toy", view );
 
-		var sibling = Views.LastOrDefault();
+		var sibling = Views.LastOrDefault()?.Parent as DockWidget;
 
 		Views.Add( view );
 
 		if ( sibling is null )
 		{
-			DockManager.AddDock( null, view, DockArea.RightOuter, split: 1f );
+			DockManager.AddDock( dockWidget, DockArea.Right );
 		}
 		else
 		{
-			DockManager.AddDock( sibling, view, DockArea.Inside );
+			DockManager.AddDock( dockWidget, sibling );
 		}
 
 		DockManager.Update();
